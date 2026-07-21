@@ -1,0 +1,11 @@
+style:
+  MagicNumber:
+    active: true
+    ignoreNumbers: ['-1', '0', '1', '2']
+    excludes: ['**/db/*Table.kt', '**/test/**']
+  ThrowsCount:
+    active: false
+
+naming:
+  MatchingDeclarationName:
+    active: false
