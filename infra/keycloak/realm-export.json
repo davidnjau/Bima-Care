@@ -6,10 +6,21 @@
     "realm": [
       { "name": "Admin", "description": "Full platform administration" },
       { "name": "Provider", "description": "Healthcare provider / facility staff" },
-      { "name": "Insurer", "description": "SHA / insurer staff" }
+      { "name": "Insurer", "description": "SHA / insurer staff" },
+      { "name": "ExternalPartner", "description": "External lab/EMR/SHA system consuming the FHIR gateway" }
     ]
   },
   "clients": [
+    {
+      "clientId": "bima-fhir-partner",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "local-dev-only-changeme"
+    },
     {
       "clientId": "bima-gateway",
       "enabled": true,

@@ -2,6 +2,12 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: bima-postgres
+    # Default max_connections=100 is too low once you multiply 10+ services by HikariCP's
+    # default pool size of 10 each (shared/service-commons/Database.kt) - genuinely exhausted
+    # this in practice (13 services -> up to 130 possible connections), which silently
+    # produces the same symptom as a hung service (requests time out waiting for a
+    # connection that never frees up). Bumped well above what this fleet can currently demand.
+    command: ["postgres", "-c", "max_connections=300"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-bima}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bima}
@@ -39,6 +45,50 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
+  minio:
+    image: minio/minio:latest
+    container_name: bima-minio
+    command: server /data --console-address ":9091"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-bima}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-bima-dev-only}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9091:9091"   # web console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  hapi-fhir-server:
+    image: hapiproject/hapi:latest
+    container_name: bima-hapi-fhir-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hapi_fhir_server
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-bima}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-bima}
+      SPRING_DATASOURCE_DRIVERCLASSNAME: org.postgresql.Driver
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      HAPI_FHIR_FHIR_VERSION: R4
+      HAPI_FHIR_ALLOW_EXTERNAL_REFERENCES: "true"
+    ports:
+      - "8094:8080"
+    # First boot builds its Lucene search index + Hibernate schema - can genuinely take 1-2
+    # minutes, hence the generous retries. /fhir/metadata returning a CapabilityStatement is
+    # the real readiness signal, not just the port accepting connections.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/fhir/metadata >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 30s
+
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
     container_name: bima-keycloak
@@ -57,3 +107,4 @@ services:
 
 volumes:
   postgres-data:
+  minio-data:

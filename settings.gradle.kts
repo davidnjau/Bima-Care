@@ -26,5 +26,8 @@ include(
     ":services:encounter-service",
     ":services:claims-service",
     ":services:payments-service",
+    ":services:consent-service",
+    ":services:document-service",
+    ":services:fhir-gateway",
     ":gateway",
 )

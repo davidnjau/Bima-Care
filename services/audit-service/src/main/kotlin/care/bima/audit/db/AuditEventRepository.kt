@@ -1,7 +1,10 @@
 package care.bima.audit.db
 
+import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.andWhere
 import org.jetbrains.exposed.sql.insertIgnore
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.UUID
 
@@ -33,4 +36,28 @@ class AuditEventRepository {
                 it[payload] = event.payload
             }
         }
+
+    fun findById(id: UUID): AuditRecord? =
+        transaction {
+            AuditEventsTable.selectAll().where { AuditEventsTable.id eq id }
+                .map { it.toAuditRecord() }
+                .singleOrNull()
+        }
+
+    fun findAll(resourceId: String?): List<AuditRecord> =
+        transaction {
+            val query = AuditEventsTable.selectAll()
+            resourceId?.let { query.andWhere { AuditEventsTable.resourceId eq it } }
+            query.map { it.toAuditRecord() }
+        }
+
+    private fun ResultRow.toAuditRecord() =
+        AuditRecord(
+            id = this[AuditEventsTable.id],
+            eventType = this[AuditEventsTable.eventType],
+            resourceId = this[AuditEventsTable.resourceId],
+            version = this[AuditEventsTable.version],
+            occurredAt = this[AuditEventsTable.occurredAt],
+            payload = this[AuditEventsTable.payload],
+        )
 }

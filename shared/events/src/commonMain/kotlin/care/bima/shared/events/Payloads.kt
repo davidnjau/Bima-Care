@@ -34,3 +34,19 @@ data class PaymentReleasedPayload(
     val patientId: String,
     val amount: String,
 )
+
+@Serializable
+data class ConsentUpdatedPayload(
+    val consentId: String,
+    val patientId: String,
+    val granteeId: String,
+    val status: String,
+)
+
+@Serializable
+data class DocumentUploadedPayload(
+    val documentId: String,
+    val patientId: String,
+    val contentType: String,
+    val category: String,
+)
