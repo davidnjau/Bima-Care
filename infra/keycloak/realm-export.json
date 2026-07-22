@@ -1,6 +1,7 @@
 {
   "realm": "bima-care",
   "enabled": true,
+  "sslRequired": "none",
   "roles": {
     "realm": [
       { "name": "Admin", "description": "Full platform administration" },
@@ -51,6 +52,19 @@
       "email": "provider@bimacare.dev",
       "firstName": "Provider",
       "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        { "type": "password", "value": "local-dev-only-changeme", "temporary": false }
+      ],
+      "realmRoles": ["Provider"]
+    },
+    {
+      "username": "provider2@bimacare.dev",
+      "email": "provider2@bimacare.dev",
+      "firstName": "Provider",
+      "lastName": "Two",
       "enabled": true,
       "emailVerified": true,
       "requiredActions": [],

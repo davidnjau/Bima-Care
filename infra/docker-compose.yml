@@ -30,10 +30,22 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      # Single-broker cluster: the default replication factor of 3 for internal topics
+      # (__consumer_offsets, __transaction_state) can never be satisfied, which silently
+      # breaks every consumer group forever (produce/fetch still work, only group
+      # coordination hangs) - this went unnoticed until Phase 2 added the first real
+      # Kafka consumers.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
     container_name: bima-keycloak
+    # realm-export.json sets sslRequired: none - on Docker Desktop for Mac, host->container
+    # traffic is routed through the VM's gateway IP, not 127.0.0.1, so Keycloak's default
+    # sslRequired: external (which exempts loopback) rejects every plain-HTTP local dev
+    # request with "HTTPS required".
     command: start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: admin

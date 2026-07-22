@@ -35,4 +35,16 @@ class ServiceToServiceClient(
         val token = fetchAccessToken()
         return client.get(url) { header("Authorization", "Bearer $token") }
     }
+
+    suspend fun post(
+        url: String,
+        jsonBody: String,
+    ): HttpResponse {
+        val token = fetchAccessToken()
+        return client.post(url) {
+            header("Authorization", "Bearer $token")
+            contentType(ContentType.Application.Json)
+            setBody(jsonBody)
+        }
+    }
 }

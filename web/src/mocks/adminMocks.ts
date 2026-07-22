@@ -56,57 +56,6 @@ export const policies: MockPolicy[] = [
   },
 ]
 
-export interface MockAdminClaim {
-  id: string
-  member: string
-  provider: string
-  type: string
-  date: string
-  amount: string
-  diagnosis: string
-}
-
-export const pendingClaims: MockAdminClaim[] = [
-  {
-    id: 'CLM-2024-000101',
-    member: 'Peter Ochieng',
-    provider: 'Nairobi Hospital',
-    type: 'Inpatient',
-    date: '—',
-    amount: 'Ksh 125,000',
-    diagnosis: 'Pneumonia',
-  },
-  {
-    id: 'CLM-2024-000102',
-    member: 'Mary Wanjiku',
-    provider: 'Karen Hospital',
-    type: 'Outpatient',
-    date: '—',
-    amount: 'Ksh 28,000',
-    diagnosis: 'Diabetes',
-  },
-  {
-    id: 'CLM-2024-000103',
-    member: 'John Maina',
-    provider: 'Mediheal Pharmacy — Westlands',
-    type: 'Pharmacy',
-    date: '—',
-    amount: 'Ksh 8,500',
-    diagnosis: '—',
-  },
-  {
-    id: 'CLM-2024-000003',
-    member: 'Grace Kamau',
-    provider: 'Karen Hospital',
-    type: 'Laboratory',
-    date: '20/04/2024',
-    amount: 'Ksh 15,000',
-    diagnosis: 'Routine checkup',
-  },
-]
-
-export const processedClaims: MockAdminClaim[] = []
-
 export interface MockReport {
   title: string
   description: string
