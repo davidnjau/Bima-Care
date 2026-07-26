@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { listPatients, type Patient } from '../api/patients'
 import { useMemberStore } from '../stores/member'
 import { useAuthStore } from '../stores/auth'
 
 const member = useMemberStore()
 const auth = useAuthStore()
+const router = useRouter()
 const patients = ref<Patient[]>([])
 const loading = ref(true)
 const error = ref('')
+
+const isRealMemberSession = computed(() => auth.hasRealSession && auth.isMember)
 
 const navItems = [
   { to: '/member/card', label: 'My Card' },
@@ -17,10 +21,19 @@ const navItems = [
   { to: '/member/dependents', label: 'Dependents' },
 ]
 
+function logout() {
+  auth.logout()
+  router.push('/login')
+}
+
 async function load() {
   loading.value = true
   error.value = ''
   try {
+    if (isRealMemberSession.value && auth.patientId) {
+      member.select(auth.patientId)
+      return
+    }
     await auth.ensureDemoSession()
     patients.value = await listPatients()
     if (!member.selectedPatientId && patients.value.length > 0) {
@@ -43,9 +56,18 @@ onMounted(load)
         <router-link to="/" class="font-display text-lg font-bold">
           Bima<span class="text-accent">&bull;</span>Care
         </router-link>
-        <span class="text-[0.68rem] uppercase tracking-wider text-brand-tint/80">
-          Member preview
-        </span>
+        <div class="flex items-center gap-3.5 text-sm">
+          <span class="text-[0.68rem] uppercase tracking-wider text-brand-tint/80">
+            {{ isRealMemberSession ? 'Member Portal' : 'Member preview' }}
+          </span>
+          <button
+            v-if="isRealMemberSession"
+            class="border border-white/35 rounded-[7px] px-3.5 py-1.5 text-xs hover:bg-white/10"
+            @click="logout"
+          >
+            Logout
+          </button>
+        </div>
       </div>
       <nav class="flex gap-1 px-6 bg-white overflow-x-auto">
         <router-link
@@ -60,7 +82,10 @@ onMounted(load)
       </nav>
     </header>
 
-    <div class="bg-warning-soft border-b border-warning/20 px-7 py-2.5 text-sm text-warning">
+    <div
+      v-if="!isRealMemberSession"
+      class="bg-warning-soft border-b border-warning/20 px-7 py-2.5 text-sm text-warning"
+    >
       <b>Demo mode</b> &mdash; pick any member below to preview their record. This is not a real
       login.
     </div>
@@ -68,24 +93,26 @@ onMounted(load)
     <main class="max-w-3xl mx-auto px-7 py-8">
       <p v-if="error" class="text-critical text-sm mb-4">{{ error }}</p>
 
-      <div class="mb-6">
-        <label class="text-xs font-semibold text-muted">Previewing as</label>
-        <select
-          :disabled="loading"
-          :value="member.selectedPatientId"
-          class="mt-1.5 block w-full sm:w-auto border border-line-strong rounded-[7px] px-3 py-2 text-sm bg-white"
-          @change="member.select(($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="patient in patients" :key="patient.id" :value="patient.id">
-            {{ patient.firstName }} {{ patient.lastName }} &mdash; {{ patient.nationalId }}
-          </option>
-        </select>
-      </div>
+      <template v-if="!isRealMemberSession">
+        <div class="mb-6">
+          <label class="text-xs font-semibold text-muted">Previewing as</label>
+          <select
+            :disabled="loading"
+            :value="member.selectedPatientId"
+            class="mt-1.5 block w-full sm:w-auto border border-line-strong rounded-[7px] px-3 py-2 text-sm bg-white"
+            @change="member.select(($event.target as HTMLSelectElement).value)"
+          >
+            <option v-for="patient in patients" :key="patient.id" :value="patient.id">
+              {{ patient.firstName }} {{ patient.lastName }} &mdash; {{ patient.nationalId }}
+            </option>
+          </select>
+        </div>
+        <p v-if="!loading && patients.length === 0" class="text-muted text-sm">
+          No members exist yet — add one from the Admin console first.
+        </p>
+      </template>
 
-      <p v-if="!loading && patients.length === 0" class="text-muted text-sm">
-        No members exist yet — add one from the Admin console first.
-      </p>
-      <router-view v-else />
+      <router-view v-if="!loading && member.selectedPatientId" />
     </main>
   </div>
 </template>

@@ -1,0 +1,121 @@
+# Production infra layer - Postgres, Kafka, MinIO, the HAPI FHIR server, and Keycloak.
+# Brought up once during provisioning (see deploy/provision.sh) and left running across
+# app deploys. Unlike docker-compose.yml (local dev), nothing here is published to a host
+# port except Keycloak - the browser needs to reach it directly for the direct-grant login
+# flow. Everything else is reachable only by app containers on the shared `bima` network.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bima-postgres
+    command: ["postgres", "-c", "max_connections=300"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bima}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: bima
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bima}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks: [bima]
+
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: bima-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      # Single-broker cluster - see infra/docker-compose.yml for why these must be 1.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    restart: unless-stopped
+    networks: [bima]
+
+  minio:
+    image: minio/minio:latest
+    container_name: bima-minio
+    command: server /data --console-address ":9091"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-bima}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks: [bima]
+
+  hapi-fhir-server:
+    image: hapiproject/hapi:latest
+    container_name: bima-hapi-fhir-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hapi_fhir_server
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-bima}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      SPRING_DATASOURCE_DRIVERCLASSNAME: org.postgresql.Driver
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      HAPI_FHIR_FHIR_VERSION: R4
+      HAPI_FHIR_ALLOW_EXTERNAL_REFERENCES: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/fhir/metadata >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 30s
+    restart: unless-stopped
+    networks: [bima]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: bima-keycloak
+    # Production start mode (not start-dev). No TLS/domain yet (see ROADMAP.md /
+    # deploy/README.md), so http-enabled+hostname-strict=false relax Keycloak's usual
+    # HTTPS-and-real-hostname requirements - tighten this once a domain + reverse proxy
+    # with TLS are added.
+    command: start --import-realm --http-enabled=true --hostname-strict=false --proxy-headers=xforwarded
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set in .env}
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    healthcheck:
+      # The realm's own issuer metadata endpoint - only responds once the server is up
+      # AND the realm-export.json import has completed.
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/realms/bima-care >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 30s
+    restart: unless-stopped
+    networks: [bima]
+
+networks:
+  bima:
+    name: bima-network
+    driver: bridge
+
+volumes:
+  postgres-data:
+  kafka-data:
+  minio-data:

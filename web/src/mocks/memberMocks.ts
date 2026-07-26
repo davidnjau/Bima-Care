@@ -1,39 +1,3 @@
-export interface MockClaim {
-  provider: string
-  date: string
-  status: string
-  type: string
-  amount: string
-  diagnosis: string
-}
-
-export const claims: MockClaim[] = [
-  {
-    provider: 'Nairobi Hospital',
-    date: '15 Mar 2024',
-    status: 'approved',
-    type: 'Outpatient',
-    amount: 'Ksh 8,500',
-    diagnosis: 'Upper Respiratory Tract Infection',
-  },
-  {
-    provider: 'Mediheal Pharmacy — Westlands',
-    date: '02 Apr 2024',
-    status: 'approved',
-    type: 'Pharmacy',
-    amount: 'Ksh 3,200',
-    diagnosis: 'Prescription refill — Hypertension',
-  },
-  {
-    provider: 'Karen Hospital',
-    date: '10 Feb 2024',
-    status: 'approved',
-    type: 'Outpatient',
-    amount: 'Ksh 5,500',
-    diagnosis: 'Routine checkup',
-  },
-]
-
 export interface MockDependent {
   name: string
   relationship: string

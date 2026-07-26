@@ -1,17 +1,38 @@
 # UI Implementation Plan — Page by Page
 
-**Status: Phase 1 of this plan (navigation + dummy data) is done**, verified 21 Jul 2026 by
-click-through with Playwright against the running dev server (admin/provider login via the
-Keycloak demo users in `infra/keycloak/realm-export.json`, member portal in its existing demo
-mode). No console errors; every route below renders with the dummy data described. Real
-integration (swapping mocks for API calls) is the remaining work, gated on Phase 2 backend
-services per `ROADMAP.md`.
+**Status: Phase 1 (navigation + dummy data) and the Phase 2 backend + first real-data wiring are
+both done**, verified 22 Jul 2026. Encounter/Claims/Payments/Audit services exist, run, and pass an
+end-to-end smoke test (`infra/smoke-test.sh`) through the gateway: submit claim → auto-create
+encounter → verify eligibility → admin adjudicate → payment auto-released → audit trail recorded.
+Provider Submit Claim, Provider Transaction History, and Admin Claims are now wired to the real
+API (see per-page notes below) — Member Claims History/Dependents, Provider Pre-Authorization, and
+Admin Policies/Reports remain dummy-data-only pending their own backend.
 
-> **Gotcha hit during verification**: the Reports page charts (`h-36`/`h-28` bar heights) rendered
-> as invisible/zero-height at first — not a code bug. The Vite dev server had been running for 18+
-> hours since a prior session and hadn't picked up newly-introduced Tailwind utility classes.
-> Restarting `npm run dev` fixed it immediately. If a newly added page's Tailwind classes don't
-> seem to apply, restart the dev server before debugging the component.
+Two dummy provider accounts exist for navigation testing: `provider@bimacare.dev` (Nairobi
+Hospital) and `provider2@bimacare.dev` (Karen Hospital), password `local-dev-only-changeme` for
+both — Transaction History is genuinely scoped per account (see "Practitioner/Organization
+identity" note below), so switching accounts shows different real data.
+
+> **Gotchas hit during this work** — all four were long-running local dev processes silently
+> breaking after running for days across machine sleep/wake cycles, not code bugs. If something
+> that worked before suddenly doesn't, restart the process before debugging the code:
+> - Vite dev server not picking up new Tailwind classes (`h-36`/`h-28` rendering as zero-height) →
+>   restart `npm run dev`.
+> - `provider-service` hanging on `GET /practitioners` (HikariCP connections idle, no active
+>   query) → restart the service.
+> - `eligibility-service` throwing `NoClassDefFoundError` from a crashed Netty thread (logs showed
+>   repeated "Thread starvation or clock leap detected" warnings) → restart the service.
+> - Keycloak rejecting every request with `"HTTPS required"`, even from localhost → Docker
+>   Desktop's host→container routing goes through the VM gateway IP, not `127.0.0.1`, which trips
+>   `sslRequired: external`'s loopback exemption. Fixed by setting `sslRequired: none` on the
+>   realm (now baked into `infra/keycloak/realm-export.json`) — recreating the container alone
+>   didn't fix it, the realm setting itself needed to change.
+>
+> Also a **real, permanent infra bug** (not staleness): Kafka's single-broker cluster defaults to
+> `offsets.topic.replication.factor=3`, which can never be satisfied by one broker — this silently
+> broke every Kafka consumer group from Phase 0 onward (producers worked fine, so it was invisible
+> until Phase 2 added the first real consumers). Fixed in `infra/docker-compose.yml` with
+> `KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1`.
 
 Source reference: https://afya-akili-digital.lovable.app/ (Lovable prototype, same domain — Kenyan
 digital health insurance). Routes below were pulled from its compiled bundle and each page was
@@ -36,14 +57,14 @@ Legend for **Status**:
 | Member | `/member/claims` | `views/member/ClaimsHistoryView.vue` | 🟡 Dummy data — done |
 | Member | `/member/dependents` | `views/member/DependentsView.vue` | 🟡 Dummy data — done |
 | Provider | `/provider/verify` | `views/provider/VerifyMemberView.vue` | ✅ Live |
-| Provider | `/provider/claim` | `views/provider/SubmitClaimView.vue` | 🟡 Dummy data — done |
+| Provider | `/provider/claim` | `views/provider/SubmitClaimView.vue` | ✅ Live (claims-service) |
 | Provider | `/provider/preauth` | `views/provider/PreAuthorizationView.vue` | 🟡 Dummy data — done |
-| Provider | `/provider/history` | `views/provider/TransactionHistoryView.vue` | 🟡 Dummy data — done |
+| Provider | `/provider/history` | `views/provider/TransactionHistoryView.vue` | ✅ Live (claims-service) |
 | Admin | `/admin/dashboard` | `views/admin/DashboardView.vue` | ✅ Live |
 | Admin | `/admin/members` | `views/admin/MembersView.vue` | ✅ Live |
 | Admin | `/admin/providers` | `views/admin/ProvidersView.vue` | ✅ Live |
+| Admin | `/admin/claims` | `views/admin/ClaimsView.vue` | ✅ Live (claims-service, Admin-only adjudication) |
 | Admin | `/admin/policies` | `views/admin/PoliciesView.vue` | 🟡 Dummy data — done |
-| Admin | `/admin/claims` | `views/admin/ClaimsView.vue` | 🟡 Dummy data — done |
 | Admin | `/admin/reports` | `views/admin/ReportsView.vue` | 🟡 Dummy data — done |
 
 🟡 = navigation/layout finished this pass, still backed by `web/src/mocks/*.ts` rather than a real

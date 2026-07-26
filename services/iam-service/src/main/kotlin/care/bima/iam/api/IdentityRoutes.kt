@@ -24,6 +24,7 @@ fun Routing.identityRoutes() {
                     IdentityResponse(
                         subject = principal.payload.subject,
                         roles = principal.realmRoles(),
+                        patientId = principal.payload.getClaim("patientId")?.asString(),
                     ),
                 )
             }

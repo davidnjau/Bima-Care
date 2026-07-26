@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 const props = defineProps<{ active: boolean }>()
 
-const classes = props.active
-  ? 'bg-success-soft text-success'
-  : 'bg-critical-soft text-critical'
+const classes = computed(() =>
+  props.active ? 'bg-success-soft text-success' : 'bg-critical-soft text-critical',
+)
 </script>
 
 <template>

@@ -15,7 +15,7 @@ import java.util.UUID
 class CoverageRepository {
     fun createSchema() =
         transaction {
-            SchemaUtils.create(CoveragesTable)
+            SchemaUtils.createMissingTablesAndColumns(CoveragesTable)
         }
 
     fun create(coverage: Coverage): Coverage =
@@ -28,6 +28,7 @@ class CoverageRepository {
                 it[startDate] = coverage.startDate
                 it[endDate] = coverage.endDate
                 it[planTier] = coverage.planTier
+                it[policyId] = coverage.policyId
             }
             coverage
         }
@@ -66,5 +67,6 @@ class CoverageRepository {
             startDate = this[CoveragesTable.startDate],
             endDate = this[CoveragesTable.endDate],
             planTier = this[CoveragesTable.planTier],
+            policyId = this[CoveragesTable.policyId],
         )
 }

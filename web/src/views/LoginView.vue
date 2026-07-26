@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { postLoginHome } from '../router'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -18,8 +19,7 @@ async function onSubmit() {
   try {
     await auth.login(username.value, password.value)
     const explicitRedirect = route.query.redirect as string | undefined
-    const fallback = auth.isProvider ? '/provider/verify' : '/admin/dashboard'
-    router.push(explicitRedirect || fallback)
+    router.push(explicitRedirect || postLoginHome())
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Login failed.'
   } finally {

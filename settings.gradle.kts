@@ -22,5 +22,13 @@ include(
     ":services:organization-service",
     ":services:eligibility-service",
     ":services:iam-service",
+    ":services:audit-service",
+    ":services:encounter-service",
+    ":services:claims-service",
+    ":services:payments-service",
+    ":services:consent-service",
+    ":services:document-service",
+    ":services:fhir-gateway",
+    ":services:sync-service",
     ":gateway",
 )

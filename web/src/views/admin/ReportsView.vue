@@ -56,11 +56,13 @@ function formatKsh(amount: number): string {
         <h3 class="text-sm font-semibold mb-4">Premium Collection Trend (6 months)</h3>
         <div class="flex items-end gap-3 h-36">
           <div v-for="m in premiumTrend" :key="m.month" class="flex-1 flex flex-col items-center gap-1.5">
-            <div
-              class="w-full bg-accent rounded-t"
-              :style="{ height: `${(m.amount / premiumTrendMax) * 100}%` }"
-              :title="formatKsh(m.amount)"
-            ></div>
+            <div class="w-full flex items-end h-28">
+              <div
+                class="w-full bg-accent rounded-t"
+                :style="{ height: `${(m.amount / premiumTrendMax) * 100}%` }"
+                :title="formatKsh(m.amount)"
+              ></div>
+            </div>
             <span class="text-[0.68rem] text-muted">{{ m.month }}</span>
           </div>
         </div>

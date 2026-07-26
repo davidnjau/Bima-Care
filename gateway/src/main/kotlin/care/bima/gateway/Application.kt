@@ -24,6 +24,15 @@ private fun upstreams() =
         UpstreamRoute("/practitioners", System.getenv("PROVIDER_SERVICE_URL") ?: "http://localhost:8082"),
         UpstreamRoute("/organizations", System.getenv("ORGANIZATION_SERVICE_URL") ?: "http://localhost:8083"),
         UpstreamRoute("/coverages", System.getenv("ELIGIBILITY_SERVICE_URL") ?: "http://localhost:8084"),
+        UpstreamRoute("/policies", System.getenv("ELIGIBILITY_SERVICE_URL") ?: "http://localhost:8084"),
+        UpstreamRoute("/encounters", System.getenv("ENCOUNTER_SERVICE_URL") ?: "http://localhost:8087"),
+        UpstreamRoute("/claims", System.getenv("CLAIMS_SERVICE_URL") ?: "http://localhost:8088"),
+        UpstreamRoute("/payments", System.getenv("PAYMENTS_SERVICE_URL") ?: "http://localhost:8089"),
+        UpstreamRoute("/consents", System.getenv("CONSENT_SERVICE_URL") ?: "http://localhost:8092"),
+        // Note: document-service's upload endpoint is multipart/form-data, but this gateway's
+        // proxyRequest() reads the body via receiveText() - fine for its JSON GET routes, but
+        // don't proxy the upload route through here yet, it would corrupt binary file bytes.
+        UpstreamRoute("/documents", System.getenv("DOCUMENT_SERVICE_URL") ?: "http://localhost:8093"),
     )
 
 fun main() {

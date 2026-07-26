@@ -6,10 +6,12 @@ import care.bima.patient.domain.Patient
 import care.bima.patient.events.PatientEventPublisher
 import care.bima.patient.fhir.PatientFhirMapper
 import care.bima.shared.fhir.FhirContextProvider
+import care.bima.shared.service.ConflictException
 import care.bima.shared.service.NotFoundException
 import care.bima.shared.service.ValidationException
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.auth.authenticate
 import io.ktor.server.request.receive
@@ -30,24 +32,13 @@ fun Routing.patientRoutes(
         route("/patients") {
             post {
                 val request = call.receive<CreatePatientRequest>()
-                val gender =
-                    runCatching { Gender.valueOf(request.gender.uppercase()) }
-                        .getOrElse { throw ValidationException("Invalid gender: ${request.gender}") }
-                val dob =
-                    runCatching { LocalDate.parse(request.dob) }
-                        .getOrElse { throw ValidationException("Invalid dob, expected ISO-8601: ${request.dob}") }
+                val existing = repository.findByNationalId(request.nationalId)
+                if (existing != null) {
+                    respondExistingOrConflict(call, existing, request.id)
+                    return@post
+                }
 
-                val patient =
-                    Patient(
-                        id = UUID.randomUUID(),
-                        nationalId = request.nationalId,
-                        firstName = request.firstName,
-                        lastName = request.lastName,
-                        phone = request.phone,
-                        gender = gender,
-                        dob = dob,
-                    )
-
+                val patient = request.toNewPatient()
                 val created = repository.create(patient)
                 publisher.publishPatientCreated(created)
                 call.respond(HttpStatusCode.Created, created.toResponse())
@@ -75,6 +66,45 @@ fun Routing.patientRoutes(
 
 private fun parseId(raw: String?): UUID =
     runCatching { UUID.fromString(raw) }.getOrElse { throw ValidationException("Invalid patient id: $raw") }
+
+// Only a request that supplies the SAME pre-generated id as the existing record is a safe replay
+// of a prior offline sync (see Workstream C) - otherwise this is a genuine conflict (two different
+// registrations sharing a nationalId), even if no id was supplied at all. Silently returning the
+// existing record for an id-less request would mask real data-entry conflicts.
+private suspend fun respondExistingOrConflict(
+    call: ApplicationCall,
+    existing: Patient,
+    requestedId: String?,
+) {
+    val requestedUuid = requestedId?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+    if (requestedUuid != null && requestedUuid == existing.id) {
+        call.respond(HttpStatusCode.OK, existing.toResponse())
+        return
+    }
+    throw ConflictException("A patient with this nationalId already exists")
+}
+
+private fun CreatePatientRequest.toNewPatient(): Patient {
+    val gender =
+        runCatching { Gender.valueOf(gender.uppercase()) }
+            .getOrElse { throw ValidationException("Invalid gender: $gender") }
+    val parsedDob =
+        runCatching { LocalDate.parse(dob) }
+            .getOrElse { throw ValidationException("Invalid dob, expected ISO-8601: $dob") }
+    val patientId =
+        id?.let { runCatching { UUID.fromString(it) }.getOrElse { throw ValidationException("Invalid id: $it") } }
+            ?: UUID.randomUUID()
+
+    return Patient(
+        id = patientId,
+        nationalId = nationalId,
+        firstName = firstName,
+        lastName = lastName,
+        phone = phone,
+        gender = gender,
+        dob = parsedDob,
+    )
+}
 
 private fun Patient.toResponse() =
     PatientResponse(

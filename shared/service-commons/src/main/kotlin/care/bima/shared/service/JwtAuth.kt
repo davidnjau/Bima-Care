@@ -38,3 +38,5 @@ fun JWTPrincipal.realmRoles(): List<String> {
     val roles = (payload.getClaim("realm_access").asMap()?.get("roles") as? List<String>)
     return roles ?: emptyList()
 }
+
+fun JWTPrincipal.username(): String? = payload.getClaim("preferred_username").asString()
