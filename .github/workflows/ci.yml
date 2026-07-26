@@ -209,10 +209,11 @@ jobs:
               systemctl enable --now docker
             fi
             cd ~/bima-care/infra
-            # The two files must be passed together in one invocation - docker-compose.apps.yml's
-            # depends_on references postgres/kafka/keycloak, which are only defined in
-            # docker-compose.infra.yml, so running them as separate `docker compose` calls fails
-            # with "depends on undefined service" (each file is validated as its own project).
-            docker compose --env-file .env -f docker-compose.apps.yml pull
-            docker compose --env-file .env -f docker-compose.infra.yml -f docker-compose.apps.yml up -d --remove-orphans
+            # Compose validates the full project graph (depends_on included) for every
+            # subcommand, not just `up` - docker-compose.apps.yml's depends_on references
+            # postgres/kafka/keycloak, which only exist in docker-compose.infra.yml, so BOTH
+            # files must be passed together on every invocation, `pull` included.
+            COMPOSE_FILES="-f docker-compose.infra.yml -f docker-compose.apps.yml"
+            docker compose --env-file .env $COMPOSE_FILES pull
+            docker compose --env-file .env $COMPOSE_FILES up -d --remove-orphans
             docker image prune -f
