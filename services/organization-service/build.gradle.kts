@@ -18,6 +18,7 @@ dependencies {
     implementation(project(":shared:fhir-models"))
     implementation(libs.ktor.server.netty)
     implementation(libs.exposed.java.time)
+    implementation(libs.kafka.clients)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.ktor.server.test.host)

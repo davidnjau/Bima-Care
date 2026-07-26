@@ -2,6 +2,7 @@ package care.bima.provider
 
 import care.bima.provider.api.practitionerRoutes
 import care.bima.provider.db.PractitionerRepository
+import care.bima.provider.events.PractitionerEventPublisher
 import care.bima.shared.service.configureErrorHandling
 import care.bima.shared.service.configureHealthCheck
 import care.bima.shared.service.configureKeycloakAuth
@@ -19,21 +20,28 @@ fun main() {
     connectToPostgres()
 
     val repository = PractitionerRepository().also { it.createSchema() }
+    val publisher =
+        PractitionerEventPublisher(
+            bootstrapServers = System.getenv("KAFKA_BOOTSTRAP_SERVERS") ?: "localhost:9092",
+        )
 
     embeddedServer(
         Netty,
         port = System.getenv("PORT")?.toInt() ?: 8082,
-        module = { module(repository) },
+        module = { module(repository, publisher) },
     ).start(wait = true)
 }
 
-fun Application.module(repository: PractitionerRepository) {
+fun Application.module(
+    repository: PractitionerRepository,
+    publisher: PractitionerEventPublisher,
+) {
     install(CallLogging)
     install(ContentNegotiation) { json() }
     configureErrorHandling()
     configureKeycloakAuth()
     configureHealthCheck()
     routing {
-        practitionerRoutes(repository)
+        practitionerRoutes(repository, publisher)
     }
 }

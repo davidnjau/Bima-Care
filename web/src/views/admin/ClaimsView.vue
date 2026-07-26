@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { adjudicateClaim, listClaims, type Claim } from '../../api/claims'
+import { adjudicateClaim, getClaimFhir, listClaims, type Claim } from '../../api/claims'
 import { listPatients, type Patient } from '../../api/patients'
 import { listOrganizations, type Organization } from '../../api/organizations'
+import { claimFields } from '../../lib/claimFields'
+import { formatDate } from '../../lib/formatDate'
 import StatusBadge from '../../components/StatusBadge.vue'
+import RecordDetailModal from '../../components/RecordDetailModal.vue'
 
 const tab = ref<'pending' | 'processed'>('pending')
 const claims = ref<Claim[]>([])
@@ -13,17 +16,32 @@ const loading = ref(true)
 const error = ref('')
 const notice = ref('')
 const acting = ref<string | null>(null)
+const viewingClaim = ref<Claim | null>(null)
 
 const pendingClaims = computed(() => claims.value.filter((c) => c.status === 'SUBMITTED'))
 const processedClaims = computed(() => claims.value.filter((c) => c.status !== 'SUBMITTED'))
 
 function patientName(id: string): string {
   const patient = patients.value.find((p) => p.id === id)
-  return patient ? `${patient.firstName} ${patient.lastName}` : id.slice(0, 8)
+  return patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown member'
 }
 
 function organizationName(id: string): string {
-  return organizations.value.find((o) => o.id === id)?.name ?? id.slice(0, 8)
+  return organizations.value.find((o) => o.id === id)?.name ?? 'Unknown provider'
+}
+
+function viewFields(claim: Claim) {
+  return claimFields(claim, patientName(claim.patientId), organizationName(claim.organizationId))
+}
+
+// Patient/Organization references resolve to real names; Practitioner and Coverage
+// have no lookup available in this view, so the FHIR viewer falls back to showing
+// just the resource type - never the raw id.
+function resolveClaimReference(reference: string): string | null {
+  const [resourceType, id] = reference.split('/')
+  if (resourceType === 'Patient') return patientName(id)
+  if (resourceType === 'Organization') return organizationName(id)
+  return null
 }
 
 async function load() {
@@ -121,7 +139,7 @@ onMounted(load)
             </div>
             <div class="text-right">
               <div class="font-mono font-semibold">Ksh {{ Number(claim.requestedAmount).toLocaleString() }}</div>
-              <div class="text-xs text-muted mt-0.5">{{ claim.submittedAt.slice(0, 10) }}</div>
+              <div class="text-xs text-muted mt-0.5">{{ formatDate(claim.submittedAt) }}</div>
             </div>
           </div>
           <p class="text-sm mt-3">{{ claim.diagnosisCode }} &mdash; {{ claim.treatmentDetails }}</p>
@@ -147,6 +165,12 @@ onMounted(load)
             >
               Reject
             </button>
+            <button
+              class="border border-line-strong rounded-[7px] px-3.5 py-2 text-xs font-semibold"
+              @click="viewingClaim = claim"
+            >
+              View
+            </button>
           </div>
         </div>
         <div v-if="pendingClaims.length === 0" class="border border-line rounded-[10px] p-6 text-center text-muted text-sm">
@@ -164,6 +188,7 @@ onMounted(load)
               <th class="px-4 py-3 font-bold">Requested</th>
               <th class="px-4 py-3 font-bold">Approved</th>
               <th class="px-4 py-3 font-bold">Status</th>
+              <th class="px-4 py-3 font-bold">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -176,13 +201,30 @@ onMounted(load)
                 {{ claim.approvedAmount ? `Ksh ${Number(claim.approvedAmount).toLocaleString()}` : '—' }}
               </td>
               <td class="px-4 py-3"><StatusBadge :status="claim.status" /></td>
+              <td class="px-4 py-3">
+                <button
+                  class="border border-line-strong rounded-[7px] px-3 py-1.5 text-xs font-semibold"
+                  @click="viewingClaim = claim"
+                >
+                  View
+                </button>
+              </td>
             </tr>
             <tr v-if="processedClaims.length === 0">
-              <td colspan="6" class="px-4 py-6 text-center text-muted">No processed claims yet.</td>
+              <td colspan="7" class="px-4 py-6 text-center text-muted">No processed claims yet.</td>
             </tr>
           </tbody>
         </table>
       </div>
     </template>
+
+    <RecordDetailModal
+      v-if="viewingClaim"
+      :title="`Claim ${viewingClaim.id.slice(0, 8)}`"
+      :fields="viewFields(viewingClaim)"
+      :load-fhir="() => getClaimFhir(viewingClaim!.id)"
+      :resolve-reference="resolveClaimReference"
+      @close="viewingClaim = null"
+    />
   </div>
 </template>

@@ -29,5 +29,6 @@ include(
     ":services:consent-service",
     ":services:document-service",
     ":services:fhir-gateway",
+    ":services:sync-service",
     ":gateway",
 )

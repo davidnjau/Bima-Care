@@ -29,3 +29,8 @@ export async function createOrganization(
   const response = await apiClient.post<Organization>('/organizations', request)
   return response.data
 }
+
+export async function getOrganizationFhir(id: string): Promise<unknown> {
+  const response = await apiClient.get(`/organizations/${id}/fhir`)
+  return response.data
+}

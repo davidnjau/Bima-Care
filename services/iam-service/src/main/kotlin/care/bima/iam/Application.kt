@@ -1,6 +1,10 @@
 package care.bima.iam
 
 import care.bima.iam.api.identityRoutes
+import care.bima.iam.clients.KeycloakAdminClient
+import care.bima.iam.clients.PatientClient
+import care.bima.iam.events.MemberAccountProvisioningConsumer
+import care.bima.shared.service.ServiceToServiceClient
 import care.bima.shared.service.configureErrorHandling
 import care.bima.shared.service.configureHealthCheck
 import care.bima.shared.service.configureKeycloakAuth
@@ -14,6 +18,19 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.routing
 
 fun main() {
+    val patientClient = PatientClient(ServiceToServiceClient())
+    val adminServiceClient =
+        ServiceToServiceClient(
+            clientId = System.getenv("IAM_PROVISIONER_CLIENT_ID") ?: "bima-iam-provisioner",
+            clientSecret = System.getenv("IAM_PROVISIONER_CLIENT_SECRET") ?: "local-dev-only-changeme",
+        )
+    val keycloakAdminClient = KeycloakAdminClient(adminServiceClient)
+    MemberAccountProvisioningConsumer(
+        bootstrapServers = System.getenv("KAFKA_BOOTSTRAP_SERVERS") ?: "localhost:9092",
+        patientClient = patientClient,
+        keycloakAdminClient = keycloakAdminClient,
+    ).start()
+
     embeddedServer(
         Netty,
         port = System.getenv("PORT")?.toInt() ?: 8085,

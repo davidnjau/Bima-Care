@@ -1,17 +1,25 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import { createPatient, listPatients, type CreatePatientRequest, type Patient } from '../../api/patients'
-import { listCoverages, type Coverage } from '../../api/coverages'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { createPatient, getPatientFhir, listPatients, type CreatePatientRequest, type Patient } from '../../api/patients'
+import { createCoverage, listCoverages, type Coverage } from '../../api/coverages'
+import { listPolicies, type Policy } from '../../api/policies'
+import { formatDate } from '../../lib/formatDate'
+import { isNetworkError, useOfflineQueueStore } from '../../stores/offlineQueue'
 import StatusChip from '../../components/StatusChip.vue'
+import RecordDetailModal from '../../components/RecordDetailModal.vue'
+
+const offlineQueue = useOfflineQueueStore()
 
 const loading = ref(true)
 const error = ref('')
 const patients = ref<Patient[]>([])
 const coverages = ref<Coverage[]>([])
+const policies = ref<Policy[]>([])
 
 const showForm = ref(false)
 const saving = ref(false)
 const formError = ref('')
+const queuedNotice = ref('')
 const form = reactive<CreatePatientRequest>({
   nationalId: '',
   firstName: '',
@@ -21,20 +29,77 @@ const form = reactive<CreatePatientRequest>({
   dob: '',
 })
 
-const rows = computed(() =>
-  patients.value.map((patient) => ({
-    ...patient,
-    planTier: coverages.value.find((c) => c.patientId === patient.id)?.planTier ?? null,
-  })),
-)
+const viewingPatient = ref<Patient | null>(null)
+
+function patientFields(patient: Patient) {
+  return [
+    { label: 'First name', value: patient.firstName },
+    { label: 'Last name', value: patient.lastName },
+    { label: 'National ID', value: patient.nationalId },
+    { label: 'Phone', value: patient.phone },
+    { label: 'Gender', value: patient.gender },
+    { label: 'Date of birth', value: formatDate(patient.dob) ?? patient.dob },
+    { label: 'Status', value: patient.isActive ? 'Active' : 'Inactive' },
+    { label: 'Patient ID', value: patient.id },
+  ]
+}
+
+const attachingPatient = ref<Patient | null>(null)
+const attaching = ref(false)
+const attachError = ref('')
+const attachForm = reactive({
+  policyId: '',
+  planTier: '',
+  startDate: '',
+  endDate: '',
+})
+
+const rows = computed(() => {
+  const synced = patients.value.map((patient) => {
+    const coverage = coverages.value.find((c) => c.patientId === patient.id)
+    const policy = coverage?.policyId ? policies.value.find((p) => p.id === coverage.policyId) : null
+    return {
+      id: patient.id,
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      nationalId: patient.nationalId,
+      phone: patient.phone,
+      isActive: patient.isActive,
+      policyLabel: policy ? policy.name : (coverage?.planTier ?? null),
+      hasCoverage: !!coverage,
+      pending: false,
+      syncError: null as string | null,
+      patient,
+    }
+  })
+  const pending = offlineQueue.pending.map((item) => ({
+    id: item.id,
+    firstName: item.firstName,
+    lastName: item.lastName,
+    nationalId: item.nationalId,
+    phone: item.phone,
+    isActive: true,
+    policyLabel: null,
+    hasCoverage: false,
+    pending: true,
+    syncError: item.syncError,
+    patient: null as Patient | null,
+  }))
+  return [...synced, ...pending]
+})
 
 async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [patientList, coverageList] = await Promise.all([listPatients(), listCoverages()])
+    const [patientList, coverageList, policyList] = await Promise.all([
+      listPatients(),
+      listCoverages(),
+      listPolicies(),
+    ])
     patients.value = patientList
     coverages.value = coverageList
+    policies.value = policyList
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to load members.'
   } finally {
@@ -42,21 +107,74 @@ async function load() {
   }
 }
 
+function openAttachForm(patient: Patient) {
+  attachingPatient.value = patient
+  attachError.value = ''
+  Object.assign(attachForm, { policyId: '', planTier: '', startDate: '', endDate: '' })
+}
+
+async function onAttachSubmit() {
+  if (!attachingPatient.value) return
+  const policy = policies.value.find((p) => p.id === attachForm.policyId)
+  if (!policy) {
+    attachError.value = 'Select a policy.'
+    return
+  }
+  attachError.value = ''
+  attaching.value = true
+  try {
+    await createCoverage({
+      patientId: attachingPatient.value.id,
+      insurerId: policy.insurerId,
+      status: 'ACTIVE',
+      startDate: attachForm.startDate,
+      endDate: attachForm.endDate || undefined,
+      planTier: attachForm.planTier,
+      policyId: policy.id,
+    })
+    attachingPatient.value = null
+    await load()
+  } catch (e) {
+    attachError.value = e instanceof Error ? e.message : 'Failed to attach member to policy.'
+  } finally {
+    attaching.value = false
+  }
+}
+
+function resetForm() {
+  Object.assign(form, {
+    nationalId: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    gender: 'FEMALE',
+    dob: '',
+  })
+}
+
 async function onSubmit() {
   formError.value = ''
+  queuedNotice.value = ''
   saving.value = true
   try {
-    await createPatient({ ...form })
+    if (!navigator.onLine) {
+      offlineQueue.enqueue({ ...form })
+      queuedNotice.value = 'No connection — member saved locally and will sync automatically once back online.'
+    } else {
+      try {
+        await createPatient({ ...form })
+        await load()
+      } catch (e) {
+        if (isNetworkError(e)) {
+          offlineQueue.enqueue({ ...form })
+          queuedNotice.value = 'No connection — member saved locally and will sync automatically once back online.'
+        } else {
+          throw e
+        }
+      }
+    }
     showForm.value = false
-    Object.assign(form, {
-      nationalId: '',
-      firstName: '',
-      lastName: '',
-      phone: '',
-      gender: 'FEMALE',
-      dob: '',
-    })
-    await load()
+    resetForm()
   } catch (e) {
     formError.value = e instanceof Error ? e.message : 'Failed to add member.'
   } finally {
@@ -64,7 +182,21 @@ async function onSubmit() {
   }
 }
 
-onMounted(load)
+async function syncNow() {
+  await offlineQueue.syncAll()
+  await load()
+}
+
+function handleOnline() {
+  syncNow()
+}
+
+onMounted(() => {
+  load()
+  syncNow()
+  window.addEventListener('online', handleOnline)
+})
+onUnmounted(() => window.removeEventListener('online', handleOnline))
 </script>
 
 <template>
@@ -74,13 +206,27 @@ onMounted(load)
         <h2 class="font-display text-2xl font-semibold">Members</h2>
         <p class="text-muted text-sm mt-1">Manage member accounts and policies</p>
       </div>
-      <button
-        class="bg-accent hover:bg-accent-dark text-white font-semibold text-sm rounded-[7px] px-4.5 py-2.5"
-        @click="showForm = !showForm"
-      >
-        {{ showForm ? 'Cancel' : 'Add member' }}
-      </button>
+      <div class="flex gap-2">
+        <button
+          v-if="offlineQueue.pendingCount > 0"
+          :disabled="offlineQueue.syncing"
+          class="border border-line-strong rounded-[7px] px-4.5 py-2.5 text-sm font-semibold disabled:opacity-60"
+          @click="syncNow"
+        >
+          {{ offlineQueue.syncing ? 'Syncing…' : `Sync now (${offlineQueue.pendingCount})` }}
+        </button>
+        <button
+          class="bg-accent hover:bg-accent-dark text-white font-semibold text-sm rounded-[7px] px-4.5 py-2.5"
+          @click="showForm = !showForm"
+        >
+          {{ showForm ? 'Cancel' : 'Add member' }}
+        </button>
+      </div>
     </div>
+
+    <p v-if="queuedNotice" class="bg-warning-soft text-warning text-sm rounded-[7px] px-4 py-3 mb-5">
+      {{ queuedNotice }}
+    </p>
 
     <form
       v-if="showForm"
@@ -130,6 +276,56 @@ onMounted(load)
       </div>
     </form>
 
+    <form
+      v-if="attachingPatient"
+      class="bg-white border border-line rounded-[10px] p-5 mb-6 grid grid-cols-2 gap-4"
+      @submit.prevent="onAttachSubmit"
+    >
+      <p class="col-span-2 text-sm">
+        Attach <b>{{ attachingPatient.firstName }} {{ attachingPatient.lastName }}</b> to a policy
+      </p>
+      <div class="flex flex-col gap-1.5 col-span-2">
+        <label class="text-xs font-semibold text-muted">Policy</label>
+        <select v-model="attachForm.policyId" required class="border border-line-strong rounded-[7px] px-3 py-2 text-sm">
+          <option value="" disabled>Select a policy&hellip;</option>
+          <option v-for="policy in policies" :key="policy.id" :value="policy.id">
+            {{ policy.name }} ({{ policy.policyNumber }})
+          </option>
+        </select>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold text-muted">Plan tier</label>
+        <input v-model="attachForm.planTier" required placeholder="e.g. Gold" class="border border-line-strong rounded-[7px] px-3 py-2 text-sm" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold text-muted">Start date</label>
+        <input v-model="attachForm.startDate" type="date" required class="border border-line-strong rounded-[7px] px-3 py-2 text-sm" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold text-muted">End date (optional)</label>
+        <input v-model="attachForm.endDate" type="date" class="border border-line-strong rounded-[7px] px-3 py-2 text-sm" />
+      </div>
+
+      <p v-if="attachError" class="col-span-2 text-critical text-sm">{{ attachError }}</p>
+
+      <div class="col-span-2 flex gap-2">
+        <button
+          type="submit"
+          :disabled="attaching"
+          class="bg-brand text-white font-semibold text-sm rounded-[7px] px-4.5 py-2.5 disabled:opacity-60"
+        >
+          {{ attaching ? 'Saving…' : 'Attach to policy' }}
+        </button>
+        <button
+          type="button"
+          class="border border-line-strong rounded-[7px] px-4.5 py-2.5 text-sm font-semibold"
+          @click="attachingPatient = null"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+
     <p v-if="error" class="text-critical text-sm mb-4">{{ error }}</p>
     <p v-if="loading" class="text-muted text-sm">Loading members…</p>
 
@@ -142,6 +338,7 @@ onMounted(load)
             <th class="px-4 py-3 font-bold">Contact</th>
             <th class="px-4 py-3 font-bold">Policy</th>
             <th class="px-4 py-3 font-bold">Status</th>
+            <th class="px-4 py-3 font-bold">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -149,14 +346,50 @@ onMounted(load)
             <td class="px-4 py-3 font-semibold">{{ row.firstName }} {{ row.lastName }}</td>
             <td class="px-4 py-3 font-mono">{{ row.nationalId }}</td>
             <td class="px-4 py-3">{{ row.phone }}</td>
-            <td class="px-4 py-3">{{ row.planTier ?? '—' }}</td>
-            <td class="px-4 py-3"><StatusChip :active="row.isActive" /></td>
+            <td class="px-4 py-3">{{ row.policyLabel ?? '—' }}</td>
+            <td class="px-4 py-3">
+              <span
+                v-if="row.pending"
+                :title="row.syncError ?? undefined"
+                class="inline-flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full before:content-[''] before:w-1.5 before:h-1.5 before:rounded-full before:bg-current"
+                :class="row.syncError ? 'bg-critical-soft text-critical' : 'bg-warning-soft text-warning'"
+              >
+                {{ row.syncError ? 'Sync failed' : 'Pending sync' }}
+              </span>
+              <StatusChip v-else :active="row.isActive" />
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex gap-2">
+                <button
+                  v-if="row.patient"
+                  class="border border-line-strong rounded-[7px] px-3 py-1.5 text-xs font-semibold"
+                  @click="viewingPatient = row.patient"
+                >
+                  View
+                </button>
+                <button
+                  v-if="!row.hasCoverage && !row.pending && row.patient"
+                  class="border border-line-strong rounded-[7px] px-3 py-1.5 text-xs font-semibold"
+                  @click="openAttachForm(row.patient)"
+                >
+                  Attach to Policy
+                </button>
+              </div>
+            </td>
           </tr>
           <tr v-if="rows.length === 0">
-            <td colspan="5" class="px-4 py-6 text-center text-muted">No members yet.</td>
+            <td colspan="6" class="px-4 py-6 text-center text-muted">No members yet.</td>
           </tr>
         </tbody>
       </table>
     </div>
+
+    <RecordDetailModal
+      v-if="viewingPatient"
+      :title="`${viewingPatient.firstName} ${viewingPatient.lastName}`"
+      :fields="patientFields(viewingPatient)"
+      :load-fhir="() => getPatientFhir(viewingPatient!.id)"
+      @close="viewingPatient = null"
+    />
   </div>
 </template>

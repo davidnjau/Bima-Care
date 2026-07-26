@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 const props = defineProps<{ status: string }>()
 
 const tone: Record<string, string> = {
@@ -13,12 +15,14 @@ const tone: Record<string, string> = {
   expired: 'bg-critical-soft text-critical',
 }
 
-const classes = tone[props.status.toLowerCase()] ?? 'bg-line text-muted'
-const label = props.status
-  .toLowerCase()
-  .split('_')
-  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-  .join(' ')
+const classes = computed(() => tone[props.status.toLowerCase()] ?? 'bg-line text-muted')
+const label = computed(() =>
+  props.status
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' '),
+)
 </script>
 
 <template>

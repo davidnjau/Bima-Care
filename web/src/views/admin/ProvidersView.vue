@@ -2,15 +2,31 @@
 import { onMounted, reactive, ref } from 'vue'
 import {
   createOrganization,
+  getOrganizationFhir,
   listOrganizations,
   type CreateOrganizationRequest,
   type Organization,
 } from '../../api/organizations'
 import StatusChip from '../../components/StatusChip.vue'
+import RecordDetailModal from '../../components/RecordDetailModal.vue'
 
 const loading = ref(true)
 const error = ref('')
 const organizations = ref<Organization[]>([])
+
+const viewingOrg = ref<Organization | null>(null)
+
+function orgFields(org: Organization) {
+  return [
+    { label: 'Facility name', value: org.name },
+    { label: 'Registration number', value: org.registrationNumber },
+    { label: 'Type', value: org.type },
+    { label: 'Phone', value: org.phone },
+    { label: 'Address', value: org.address },
+    { label: 'Status', value: org.isActive ? 'Active' : 'Inactive' },
+    { label: 'Organization ID', value: org.id },
+  ]
+}
 
 const showForm = ref(false)
 const saving = ref(false)
@@ -132,6 +148,7 @@ onMounted(load)
             <th class="px-4 py-3 font-bold">Address</th>
             <th class="px-4 py-3 font-bold">Phone</th>
             <th class="px-4 py-3 font-bold">Status</th>
+            <th class="px-4 py-3 font-bold">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -142,12 +159,28 @@ onMounted(load)
             <td class="px-4 py-3">{{ org.address }}</td>
             <td class="px-4 py-3">{{ org.phone }}</td>
             <td class="px-4 py-3"><StatusChip :active="org.isActive" /></td>
+            <td class="px-4 py-3">
+              <button
+                class="border border-line-strong rounded-[7px] px-3 py-1.5 text-xs font-semibold"
+                @click="viewingOrg = org"
+              >
+                View
+              </button>
+            </td>
           </tr>
           <tr v-if="organizations.length === 0">
-            <td colspan="6" class="px-4 py-6 text-center text-muted">No providers yet.</td>
+            <td colspan="7" class="px-4 py-6 text-center text-muted">No providers yet.</td>
           </tr>
         </tbody>
       </table>
     </div>
+
+    <RecordDetailModal
+      v-if="viewingOrg"
+      :title="viewingOrg.name"
+      :fields="orgFields(viewingOrg)"
+      :load-fhir="() => getOrganizationFhir(viewingOrg!.id)"
+      @close="viewingOrg = null"
+    />
   </div>
 </template>

@@ -8,6 +8,7 @@ interface AuthState {
   token: string | null
   username: string | null
   roles: string[]
+  patientId: string | null
   // True when the current token came from the silent Member-preview demo
   // login, not a real sign-in. Route guards must never treat this as
   // access to /admin or /provider.
@@ -40,13 +41,20 @@ export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     token: sessionStorage.getItem(STORAGE_KEY),
     username: sessionStorage.getItem(`${STORAGE_KEY}.username`),
-    roles: [],
+    // Was never persisted at all until now, so it silently reset to [] on every page reload —
+    // invisible before because nothing gated on roles post-reload (route guards only check
+    // hasRealSession); real Member sessions are the first thing that actually depends on it
+    // surviving a reload.
+    roles: JSON.parse(sessionStorage.getItem(`${STORAGE_KEY}.roles`) ?? '[]'),
+    patientId: sessionStorage.getItem(`${STORAGE_KEY}.patientId`),
     isDemoSession: sessionStorage.getItem(`${STORAGE_KEY}.demo`) === 'true',
   }),
 
   getters: {
     isAuthenticated: (state) => !!state.token,
     isProvider: (state) => state.roles.includes('Provider'),
+    isMember: (state) => state.roles.includes('Member'),
+    isInsurer: (state) => state.roles.includes('Insurer'),
     // Real, gate-worthy authentication — excludes the silent demo session.
     hasRealSession: (state) => !!state.token && !state.isDemoSession,
   },
@@ -63,6 +71,13 @@ export const useAuthStore = defineStore('auth', {
 
       const identity = await getMe()
       this.roles = identity.roles
+      sessionStorage.setItem(`${STORAGE_KEY}.roles`, JSON.stringify(identity.roles))
+      this.patientId = identity.patientId
+      if (identity.patientId) {
+        sessionStorage.setItem(`${STORAGE_KEY}.patientId`, identity.patientId)
+      } else {
+        sessionStorage.removeItem(`${STORAGE_KEY}.patientId`)
+      }
     },
 
     // Silently obtains a token for the Member-preview portal, which has no
@@ -83,10 +98,13 @@ export const useAuthStore = defineStore('auth', {
       this.token = null
       this.username = null
       this.roles = []
+      this.patientId = null
       this.isDemoSession = false
       sessionStorage.removeItem(STORAGE_KEY)
       sessionStorage.removeItem(`${STORAGE_KEY}.username`)
       sessionStorage.removeItem(`${STORAGE_KEY}.demo`)
+      sessionStorage.removeItem(`${STORAGE_KEY}.patientId`)
+      sessionStorage.removeItem(`${STORAGE_KEY}.roles`)
     },
   },
 })

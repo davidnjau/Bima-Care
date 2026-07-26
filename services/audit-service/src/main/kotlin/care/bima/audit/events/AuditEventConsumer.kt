@@ -64,17 +64,24 @@ class AuditEventConsumer(
     }
 
     private fun pollOnce() {
-        try {
-            val records = consumer.poll(POLL_TIMEOUT)
-            records.forEach(::handle)
-        } catch (e: WakeupException) {
-            if (running) throw e
-        } catch (
-            @Suppress("TooGenericExceptionCaught") e: Exception,
-        ) {
-            // A malformed record or transient broker hiccup must not kill the consumer thread —
-            // log and keep polling; the next poll naturally retries/advances past it.
-            log.error("Failed to process audit record", e)
+        val records =
+            try {
+                consumer.poll(POLL_TIMEOUT)
+            } catch (e: WakeupException) {
+                if (running) throw e
+                return
+            }
+        records.forEach { record ->
+            try {
+                handle(record)
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                // Per-record, not per-batch: a shared try/catch around the whole forEach means one
+                // bad record silently skips every sibling already fetched in this same poll() -
+                // offsets auto-commit past the whole batch regardless of per-record outcome.
+                log.error("Failed to process audit record at offset ${record.offset()}", e)
+            }
         }
     }
 
