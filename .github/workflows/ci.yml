@@ -196,7 +196,17 @@ jobs:
             tar -xzf ~/bima-care/infra-bundle.tar.gz -C ~/bima-care
             rm ~/bima-care/infra-bundle.tar.gz
             if ! command -v docker >/dev/null 2>&1; then
-              curl -fsSL https://get.docker.com | sh
+              # get.docker.com's convenience script doesn't recognize AlmaLinux/Rocky even
+              # though they're RHEL-compatible - fall back to Docker's own CentOS repo via
+              # dnf for any RHEL-family distro, since that's what actually works there.
+              if [ -f /etc/redhat-release ] || grep -qiE "almalinux|rocky|centos|rhel|fedora" /etc/os-release 2>/dev/null; then
+                dnf -y install dnf-plugins-core
+                dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+                dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+              else
+                curl -fsSL https://get.docker.com | sh
+              fi
+              systemctl enable --now docker
             fi
             cd ~/bima-care/infra
             docker compose --env-file .env -f docker-compose.infra.yml up -d
