@@ -90,7 +90,8 @@ from the Actions tab - same commit, same images, freshly rendered `.env`.
   the `https://` domain form and drop the raw ports.
 - **Rollback**: every push also tags the image with the commit SHA, so the previous image is
   still on the VPS as `:<previous-sha>` even after a bad deploy pulls `:latest` - a manual
-  rollback is `IMAGE_TAG=<previous-sha> docker compose --env-file .env -f docker-compose.apps.yml up -d`
-  run on the VPS. Not automated yet.
+  rollback is `IMAGE_TAG=<previous-sha> docker compose --env-file .env -f docker-compose.infra.yml -f docker-compose.apps.yml up -d`
+  run on the VPS (both files must always be passed together - see the comment in
+  `ci.yml`'s deploy job for why). Not automated yet.
 - **Secrets rotation**: if you change a Keycloak client secret in the admin console, update
   the matching GitHub secret and redeploy - there's no automation tying the two together.
