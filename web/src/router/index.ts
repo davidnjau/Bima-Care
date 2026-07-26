@@ -81,8 +81,33 @@ const router = createRouter({
       ],
     },
     {
-      // Demo-mode only: no real member identity/login exists yet, so this
-      // portal is intentionally not behind requiresAuth. See IMPLEMENTATION_GUIDE.md §9.
+      path: '/insurer',
+      component: () => import('../layouts/InsurerLayout.vue'),
+      meta: { requiresAuth: true },
+      children: [
+        { path: '', redirect: '/insurer/policies' },
+        {
+          path: 'policies',
+          name: 'insurer-policies',
+          component: () => import('../views/insurer/PoliciesView.vue'),
+        },
+        {
+          path: 'claims',
+          name: 'insurer-claims',
+          component: () => import('../views/insurer/ClaimsView.vue'),
+        },
+        {
+          path: 'members',
+          name: 'insurer-members',
+          component: () => import('../views/insurer/MembersView.vue'),
+        },
+      ],
+    },
+    {
+      // No requiresAuth here on purpose: this portal serves two audiences on the same
+      // routes - a real logged-in Member (real session, patientId from /me) and the
+      // original anonymous demo-preview mode (silent member-demo@ login + patient
+      // picker) for testing without a provisioned account. See MemberLayout.vue.
       path: '/member',
       component: () => import('../layouts/MemberLayout.vue'),
       children: [
@@ -112,9 +137,12 @@ const router = createRouter({
   ],
 })
 
-function postLoginHome(): string {
+export function postLoginHome(): string {
   const auth = useAuthStore()
-  return auth.isProvider ? '/provider/verify' : '/admin/dashboard'
+  if (auth.isProvider) return '/provider/verify'
+  if (auth.isMember) return '/member/card'
+  if (auth.isInsurer) return '/insurer/policies'
+  return '/admin/dashboard'
 }
 
 router.beforeEach((to) => {

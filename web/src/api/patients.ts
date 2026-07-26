@@ -18,6 +18,9 @@ export interface CreatePatientRequest {
   phone: string
   gender: string
   dob: string
+  // Client-generated id (see Workstream C offline queue) so a retried sync of the same
+  // request is a safe no-op on patient-service rather than a duplicate or a conflict.
+  id?: string
 }
 
 export async function listPatients(): Promise<Patient[]> {
@@ -27,6 +30,11 @@ export async function listPatients(): Promise<Patient[]> {
 
 export async function getPatient(id: string): Promise<Patient> {
   const response = await apiClient.get<Patient>(`/patients/${id}`)
+  return response.data
+}
+
+export async function getPatientFhir(id: string): Promise<unknown> {
+  const response = await apiClient.get(`/patients/${id}/fhir`)
   return response.data
 }
 

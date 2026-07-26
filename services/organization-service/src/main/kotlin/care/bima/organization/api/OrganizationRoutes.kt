@@ -3,6 +3,7 @@ package care.bima.organization.api
 import care.bima.organization.db.OrganizationRepository
 import care.bima.organization.domain.Organization
 import care.bima.organization.domain.OrganizationType
+import care.bima.organization.events.OrganizationEventPublisher
 import care.bima.organization.fhir.OrganizationFhirMapper
 import care.bima.shared.fhir.FhirContextProvider
 import care.bima.shared.service.NotFoundException
@@ -20,7 +21,10 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import java.util.UUID
 
-fun Routing.organizationRoutes(repository: OrganizationRepository) {
+fun Routing.organizationRoutes(
+    repository: OrganizationRepository,
+    publisher: OrganizationEventPublisher,
+) {
     authenticate("keycloak") {
         route("/organizations") {
             post {
@@ -39,6 +43,7 @@ fun Routing.organizationRoutes(repository: OrganizationRepository) {
                         address = request.address,
                     )
                 val created = repository.create(organization)
+                publisher.publishOrganizationCreated(created)
                 call.respond(HttpStatusCode.Created, created.toResponse())
             }
 

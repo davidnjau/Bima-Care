@@ -1,14 +1,42 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { listClaims, type Claim } from '../../api/claims'
+import { getClaimFhir, listClaims, type Claim } from '../../api/claims'
+import { listPatients, type Patient } from '../../api/patients'
+import { listOrganizations, type Organization } from '../../api/organizations'
 import { useAuthStore } from '../../stores/auth'
 import { DEMO_PROVIDER_ORGANIZATION_ID } from '../../config'
+import { claimFields } from '../../lib/claimFields'
+import { formatDate } from '../../lib/formatDate'
 import StatusBadge from '../../components/StatusBadge.vue'
+import RecordDetailModal from '../../components/RecordDetailModal.vue'
 
 const auth = useAuthStore()
 const claims = ref<Claim[]>([])
+const patients = ref<Patient[]>([])
+const organizations = ref<Organization[]>([])
 const loading = ref(true)
 const error = ref('')
+const viewingClaim = ref<Claim | null>(null)
+
+function patientName(id: string): string {
+  const patient = patients.value.find((p) => p.id === id)
+  return patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown member'
+}
+
+function organizationName(id: string): string {
+  return organizations.value.find((o) => o.id === id)?.name ?? 'Unknown provider'
+}
+
+function viewFields(claim: Claim) {
+  return claimFields(claim, patientName(claim.patientId), organizationName(claim.organizationId))
+}
+
+function resolveClaimReference(reference: string): string | null {
+  const [resourceType, id] = reference.split('/')
+  if (resourceType === 'Patient') return patientName(id)
+  if (resourceType === 'Organization') return organizationName(id)
+  return null
+}
 
 const summary = computed(() => {
   const total = claims.value.length
@@ -22,7 +50,14 @@ async function load() {
   error.value = ''
   try {
     const organizationId = auth.username ? DEMO_PROVIDER_ORGANIZATION_ID[auth.username] : undefined
-    claims.value = await listClaims(organizationId ? { organizationId } : {})
+    const [claimList, patientList, organizationList] = await Promise.all([
+      listClaims(organizationId ? { organizationId } : {}),
+      listPatients(),
+      listOrganizations(),
+    ])
+    claims.value = claimList
+    patients.value = patientList
+    organizations.value = organizationList
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to load transaction history.'
   } finally {
@@ -69,6 +104,7 @@ onMounted(load)
               <th class="px-4 py-3 font-bold">Approved</th>
               <th class="px-4 py-3 font-bold">Submitted</th>
               <th class="px-4 py-3 font-bold">Status</th>
+              <th class="px-4 py-3 font-bold">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -79,15 +115,32 @@ onMounted(load)
               <td class="px-4 py-3 font-mono">
                 {{ claim.approvedAmount ? `Ksh ${Number(claim.approvedAmount).toLocaleString()}` : '—' }}
               </td>
-              <td class="px-4 py-3 font-mono">{{ claim.submittedAt.slice(0, 10) }}</td>
+              <td class="px-4 py-3 font-mono">{{ formatDate(claim.submittedAt) }}</td>
               <td class="px-4 py-3"><StatusBadge :status="claim.status" /></td>
+              <td class="px-4 py-3">
+                <button
+                  class="border border-line-strong rounded-[7px] px-3 py-1.5 text-xs font-semibold"
+                  @click="viewingClaim = claim"
+                >
+                  View
+                </button>
+              </td>
             </tr>
             <tr v-if="claims.length === 0">
-              <td colspan="6" class="px-4 py-6 text-center text-muted">No claims submitted yet.</td>
+              <td colspan="7" class="px-4 py-6 text-center text-muted">No claims submitted yet.</td>
             </tr>
           </tbody>
         </table>
       </div>
     </template>
+
+    <RecordDetailModal
+      v-if="viewingClaim"
+      :title="`Claim ${viewingClaim.id.slice(0, 8)}`"
+      :fields="viewFields(viewingClaim)"
+      :load-fhir="() => getClaimFhir(viewingClaim!.id)"
+      :resolve-reference="resolveClaimReference"
+      @close="viewingClaim = null"
+    />
   </div>
 </template>

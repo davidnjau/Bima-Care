@@ -14,6 +14,8 @@ class NotFoundException(message: String) : RuntimeException(message)
 
 class ValidationException(message: String) : RuntimeException(message)
 
+class ConflictException(message: String) : RuntimeException(message)
+
 fun Application.configureErrorHandling() {
     install(StatusPages) {
         exception<NotFoundException> { call, cause ->
@@ -21,6 +23,9 @@ fun Application.configureErrorHandling() {
         }
         exception<ValidationException> { call, cause ->
             call.respond(HttpStatusCode.BadRequest, ErrorResponse(cause.message ?: "Invalid request"))
+        }
+        exception<ConflictException> { call, cause ->
+            call.respond(HttpStatusCode.Conflict, ErrorResponse(cause.message ?: "Conflict"))
         }
         exception<Throwable> { call, cause ->
             call.application.environment.log.error("Unhandled error", cause)

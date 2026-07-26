@@ -61,5 +61,11 @@ Nothing here is a "service" yet — just the scaffolding everything else depends
 ## Phase 4 — V2 (not scheduled yet)
 
 - [ ] Open Health Stack integration on the mobile client (FHIR Engine, Structured Data Capture, Workflow).
+      Re-evaluated Jul 2026 for Workstream C (offline member creation): FHIR Engine (local
+      storage + sync) is still Android-only; the multiplatform pieces (Kotlin FHIR data models,
+      `datacapture-kmp`) are alpha-stage per Google's own Sept 2025 announcement. Deferred again —
+      Workstream C instead uses a browser-based (IndexedDB) offline queue against the existing web
+      client, which already covers every platform a browser runs on. Revisit Open Health Stack only
+      if a native mobile client becomes a real requirement and Kotlin FHIR has left alpha.
 - [ ] Avro + Schema Registry for Kafka.
 - [ ] Multi-cluster split (Cluster A/B/C per §9) once single-cluster load demands it.

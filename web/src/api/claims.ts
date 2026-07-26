@@ -50,3 +50,8 @@ export async function adjudicateClaim(id: string, request: AdjudicateClaimReques
   const response = await apiClient.post<Claim>(`/claims/${id}/adjudicate`, request)
   return response.data
 }
+
+export async function getClaimFhir(id: string): Promise<unknown> {
+  const response = await apiClient.get(`/claims/${id}/fhir`)
+  return response.data
+}

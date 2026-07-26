@@ -2,6 +2,7 @@ package care.bima.provider.api
 
 import care.bima.provider.db.PractitionerRepository
 import care.bima.provider.domain.Practitioner
+import care.bima.provider.events.PractitionerEventPublisher
 import care.bima.provider.fhir.PractitionerFhirMapper
 import care.bima.shared.fhir.FhirContextProvider
 import care.bima.shared.service.NotFoundException
@@ -19,7 +20,10 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import java.util.UUID
 
-fun Routing.practitionerRoutes(repository: PractitionerRepository) {
+fun Routing.practitionerRoutes(
+    repository: PractitionerRepository,
+    publisher: PractitionerEventPublisher,
+) {
     authenticate("keycloak") {
         route("/practitioners") {
             post {
@@ -34,6 +38,7 @@ fun Routing.practitionerRoutes(repository: PractitionerRepository) {
                         specialty = request.specialty,
                     )
                 val created = repository.create(practitioner)
+                publisher.publishPractitionerCreated(created)
                 call.respond(HttpStatusCode.Created, created.toResponse())
             }
 

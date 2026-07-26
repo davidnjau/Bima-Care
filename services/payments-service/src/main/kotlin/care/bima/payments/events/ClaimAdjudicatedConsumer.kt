@@ -64,11 +64,15 @@ class ClaimAdjudicatedConsumer(
 
     @Suppress("TooGenericExceptionCaught")
     private fun pollOnce() {
-        try {
-            val records = consumer.poll(Duration.ofMillis(POLL_TIMEOUT_MILLIS))
-            records.forEach { record -> handleRecord(record.value()) }
-        } catch (e: Exception) {
-            logger.error("Failed to process claim.adjudicated record", e)
+        val records = consumer.poll(Duration.ofMillis(POLL_TIMEOUT_MILLIS))
+        records.forEach { record ->
+            try {
+                handleRecord(record.value())
+            } catch (e: Exception) {
+                // Per-record, not per-batch: see the comment in
+                // MemberAccountProvisioningConsumer.pollOnce() for why this must not be shared.
+                logger.error("Failed to process claim.adjudicated record at offset ${record.offset()}", e)
+            }
         }
     }
 

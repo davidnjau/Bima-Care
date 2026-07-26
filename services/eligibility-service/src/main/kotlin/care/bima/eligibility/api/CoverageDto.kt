@@ -10,6 +10,7 @@ data class CreateCoverageRequest(
     val startDate: String,
     val endDate: String? = null,
     val planTier: String,
+    val policyId: String? = null,
 )
 
 @Serializable
@@ -21,6 +22,7 @@ data class CoverageResponse(
     val startDate: String,
     val endDate: String?,
     val planTier: String,
+    val policyId: String?,
 )
 
 @Serializable

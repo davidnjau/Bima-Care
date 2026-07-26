@@ -11,6 +11,7 @@ object CoveragesTable : Table("coverages") {
     val startDate = date("start_date")
     val endDate = date("end_date").nullable()
     val planTier = varchar("plan_tier", 64)
+    val policyId = uuid("policy_id").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

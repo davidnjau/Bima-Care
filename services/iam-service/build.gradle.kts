@@ -14,7 +14,9 @@ application {
 
 dependencies {
     implementation(project(":shared:service-commons"))
+    implementation(project(":shared:events"))
     implementation(libs.ktor.server.netty)
+    implementation(libs.kafka.clients)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.ktor.server.test.host)

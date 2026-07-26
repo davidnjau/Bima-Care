@@ -37,6 +37,13 @@ class PatientRepository {
                 .singleOrNull()
         }
 
+    fun findByNationalId(nationalId: String): Patient? =
+        transaction {
+            PatientsTable.selectAll().where { PatientsTable.nationalId eq nationalId }
+                .map { it.toPatient() }
+                .singleOrNull()
+        }
+
     fun findAll(): List<Patient> =
         transaction {
             PatientsTable.selectAll().map { it.toPatient() }
