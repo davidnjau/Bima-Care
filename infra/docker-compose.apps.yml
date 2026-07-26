@@ -1,0 +1,205 @@
+# Production application layer - the gateway, all 13 microservices, and the web frontend.
+# Depends on the `bima-network` created by docker-compose.infra.yml (bring that stack up
+# first). Images are built and pushed by .github/workflows/ci.yml on every merge to main;
+# this file only ever pulls prebuilt images, it never builds from source on the VPS.
+#
+# Only the gateway (browser's API entry point) and Keycloak (in docker-compose.infra.yml)
+# are reachable from outside the VPS - every other service here talks to Postgres/Kafka and
+# to each other purely over the internal `bima` network, by container name.
+x-common-env: &common-env
+  KEYCLOAK_ISSUER: ${PUBLIC_KEYCLOAK_ISSUER:?PUBLIC_KEYCLOAK_ISSUER must be set in .env - see .env.example}
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  HAPI_FHIR_SERVER_URL: http://hapi-fhir-server:8080/fhir
+  IAM_SERVICE_URL: http://iam-service:8085
+  PATIENT_SERVICE_URL: http://patient-service:8081
+  PROVIDER_SERVICE_URL: http://provider-service:8082
+  ORGANIZATION_SERVICE_URL: http://organization-service:8083
+  ELIGIBILITY_SERVICE_URL: http://eligibility-service:8084
+  ENCOUNTER_SERVICE_URL: http://encounter-service:8087
+  CLAIMS_SERVICE_URL: http://claims-service:8088
+  PAYMENTS_SERVICE_URL: http://payments-service:8089
+  CONSENT_SERVICE_URL: http://consent-service:8092
+  DOCUMENT_SERVICE_URL: http://document-service:8093
+  DEMO_PROVIDER_IDENTITIES: ${DEMO_PROVIDER_IDENTITIES:-}
+  DEMO_INSURER_IDENTITIES: ${DEMO_INSURER_IDENTITIES:-}
+  SERVICE_CLIENT_ID: ${SERVICE_CLIENT_ID:-bima-gateway}
+  SERVICE_CLIENT_SECRET: ${BIMA_GATEWAY_CLIENT_SECRET:?BIMA_GATEWAY_CLIENT_SECRET must be set in .env}
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  networks: [bima]
+  depends_on:
+    postgres:
+      condition: service_healthy
+    kafka:
+      condition: service_started
+    keycloak:
+      condition: service_healthy
+
+services:
+  gateway:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-gateway:${IMAGE_TAG:-latest}
+    container_name: bima-gateway
+    environment:
+      <<: *common-env
+      PORT: 8080
+      WEB_APP_ORIGIN: ${PUBLIC_WEB_ORIGIN:?PUBLIC_WEB_ORIGIN must be set in .env}
+    ports:
+      - "8080:8080"
+
+  iam-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-iam-service:${IMAGE_TAG:-latest}
+    container_name: bima-iam-service
+    environment:
+      <<: *common-env
+      PORT: 8085
+      KEYCLOAK_ADMIN_BASE_URL: http://keycloak:8080/admin/realms/bima-care
+      IAM_PROVISIONER_CLIENT_ID: ${IAM_PROVISIONER_CLIENT_ID:-bima-iam-provisioner}
+      IAM_PROVISIONER_CLIENT_SECRET: ${IAM_PROVISIONER_CLIENT_SECRET:?IAM_PROVISIONER_CLIENT_SECRET must be set in .env}
+
+  patient-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-patient-service:${IMAGE_TAG:-latest}
+    container_name: bima-patient-service
+    environment:
+      <<: *common-env
+      PORT: 8081
+      DB_USER: ${POSTGRES_USER:-bima}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      DB_URL: jdbc:postgresql://postgres:5432/patient_service
+
+  provider-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-provider-service:${IMAGE_TAG:-latest}
+    container_name: bima-provider-service
+    environment:
+      <<: *common-env
+      PORT: 8082
+      DB_USER: ${POSTGRES_USER:-bima}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      DB_URL: jdbc:postgresql://postgres:5432/provider_service
+
+  organization-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-organization-service:${IMAGE_TAG:-latest}
+    container_name: bima-organization-service
+    environment:
+      <<: *common-env
+      PORT: 8083
+      DB_USER: ${POSTGRES_USER:-bima}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      DB_URL: jdbc:postgresql://postgres:5432/organization_service
+
+  eligibility-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-eligibility-service:${IMAGE_TAG:-latest}
+    container_name: bima-eligibility-service
+    environment:
+      <<: *common-env
+      PORT: 8084
+      DB_USER: ${POSTGRES_USER:-bima}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      DB_URL: jdbc:postgresql://postgres:5432/eligibility_service
+
+  encounter-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-encounter-service:${IMAGE_TAG:-latest}
+    container_name: bima-encounter-service
+    environment:
+      <<: *common-env
+      PORT: 8087
+      DB_USER: ${POSTGRES_USER:-bima}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      DB_URL: jdbc:postgresql://postgres:5432/encounter_service
+
+  claims-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-claims-service:${IMAGE_TAG:-latest}
+    container_name: bima-claims-service
+    environment:
+      <<: *common-env
+      PORT: 8088
+      DB_USER: ${POSTGRES_USER:-bima}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      DB_URL: jdbc:postgresql://postgres:5432/claims_service
+
+  payments-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-payments-service:${IMAGE_TAG:-latest}
+    container_name: bima-payments-service
+    environment:
+      <<: *common-env
+      PORT: 8089
+      DB_USER: ${POSTGRES_USER:-bima}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      DB_URL: jdbc:postgresql://postgres:5432/payments_service
+
+  audit-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-audit-service:${IMAGE_TAG:-latest}
+    container_name: bima-audit-service
+    environment:
+      <<: *common-env
+      PORT: 8090
+      DB_USER: ${POSTGRES_USER:-bima}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      DB_URL: jdbc:postgresql://postgres:5432/audit_service
+
+  fhir-gateway:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-fhir-gateway:${IMAGE_TAG:-latest}
+    container_name: bima-fhir-gateway
+    environment:
+      <<: *common-env
+      PORT: 8091
+
+  consent-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-consent-service:${IMAGE_TAG:-latest}
+    container_name: bima-consent-service
+    environment:
+      <<: *common-env
+      PORT: 8092
+      DB_USER: ${POSTGRES_USER:-bima}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      DB_URL: jdbc:postgresql://postgres:5432/consent_service
+
+  document-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-document-service:${IMAGE_TAG:-latest}
+    container_name: bima-document-service
+    environment:
+      <<: *common-env
+      PORT: 8093
+      DB_USER: ${POSTGRES_USER:-bima}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      DB_URL: jdbc:postgresql://postgres:5432/document_service
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-bima}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
+      MINIO_BUCKET: ${MINIO_BUCKET:-bima-documents}
+
+  sync-service:
+    <<: *service-defaults
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-sync-service:${IMAGE_TAG:-latest}
+    container_name: bima-sync-service
+    environment:
+      <<: *common-env
+      PORT: 8095
+
+  web:
+    restart: unless-stopped
+    networks: [bima]
+    depends_on:
+      - gateway
+    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-web:${IMAGE_TAG:-latest}
+    container_name: bima-web
+    ports:
+      - "80:80"
+
+networks:
+  bima:
+    name: bima-network
+    external: true
