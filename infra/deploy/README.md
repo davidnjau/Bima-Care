@@ -18,7 +18,7 @@ deploy.
 
 - `infra/docker-compose.infra.yml` - Postgres, Kafka, MinIO, the HAPI FHIR server, Keycloak.
 - `infra/docker-compose.apps.yml` - the gateway, all 13 microservices, and the web frontend.
-  Pulls prebuilt images from GHCR; never builds from source on the VPS.
+  Pulls prebuilt images from Docker Hub; never builds from source on the VPS.
 - `.github/workflows/ci.yml`'s `deploy` job (runs after `build-images`/`build-web-image`
   succeed, only on merge to `main`):
   1. Renders `infra/.env` from GitHub Secrets (nothing is hand-edited on the VPS).
@@ -54,6 +54,8 @@ Settings → Secrets and variables → Actions:
 | `VPS_USER` | SSH user - either `root`, or a user with passwordless sudo (the Docker install step needs it) |
 | `VPS_SSH_KEY` | The private half of the deploy keypair above |
 | `VPS_SSH_PORT` | Optional, defaults to 22 |
+| `DOCKERHUB_USERNAME` | Your Docker Hub username - images are pushed as `docker.io/<username>/bima-care-<service>` |
+| `DOCKERHUB_TOKEN` | A Docker Hub Personal Access Token (Account Settings → Security → New Access Token, Read & Write) - not your account password |
 | `POSTGRES_PASSWORD` | |
 | `KEYCLOAK_ADMIN_PASSWORD` | |
 | `MINIO_ROOT_PASSWORD` | |

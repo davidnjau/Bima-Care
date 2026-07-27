@@ -39,7 +39,7 @@ x-service-defaults: &service-defaults
 services:
   gateway:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-gateway:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-gateway:${IMAGE_TAG:-latest}
     container_name: bima-gateway
     environment:
       <<: *common-env
@@ -50,7 +50,7 @@ services:
 
   iam-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-iam-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-iam-service:${IMAGE_TAG:-latest}
     container_name: bima-iam-service
     environment:
       <<: *common-env
@@ -61,7 +61,7 @@ services:
 
   patient-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-patient-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-patient-service:${IMAGE_TAG:-latest}
     container_name: bima-patient-service
     environment:
       <<: *common-env
@@ -72,7 +72,7 @@ services:
 
   provider-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-provider-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-provider-service:${IMAGE_TAG:-latest}
     container_name: bima-provider-service
     environment:
       <<: *common-env
@@ -83,7 +83,7 @@ services:
 
   organization-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-organization-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-organization-service:${IMAGE_TAG:-latest}
     container_name: bima-organization-service
     environment:
       <<: *common-env
@@ -94,7 +94,7 @@ services:
 
   eligibility-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-eligibility-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-eligibility-service:${IMAGE_TAG:-latest}
     container_name: bima-eligibility-service
     environment:
       <<: *common-env
@@ -105,7 +105,7 @@ services:
 
   encounter-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-encounter-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-encounter-service:${IMAGE_TAG:-latest}
     container_name: bima-encounter-service
     environment:
       <<: *common-env
@@ -116,7 +116,7 @@ services:
 
   claims-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-claims-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-claims-service:${IMAGE_TAG:-latest}
     container_name: bima-claims-service
     environment:
       <<: *common-env
@@ -127,7 +127,7 @@ services:
 
   payments-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-payments-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-payments-service:${IMAGE_TAG:-latest}
     container_name: bima-payments-service
     environment:
       <<: *common-env
@@ -138,7 +138,7 @@ services:
 
   audit-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-audit-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-audit-service:${IMAGE_TAG:-latest}
     container_name: bima-audit-service
     environment:
       <<: *common-env
@@ -149,7 +149,7 @@ services:
 
   fhir-gateway:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-fhir-gateway:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-fhir-gateway:${IMAGE_TAG:-latest}
     container_name: bima-fhir-gateway
     environment:
       <<: *common-env
@@ -157,7 +157,7 @@ services:
 
   consent-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-consent-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-consent-service:${IMAGE_TAG:-latest}
     container_name: bima-consent-service
     environment:
       <<: *common-env
@@ -168,7 +168,7 @@ services:
 
   document-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-document-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-document-service:${IMAGE_TAG:-latest}
     container_name: bima-document-service
     environment:
       <<: *common-env
@@ -183,7 +183,7 @@ services:
 
   sync-service:
     <<: *service-defaults
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-sync-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-sync-service:${IMAGE_TAG:-latest}
     container_name: bima-sync-service
     environment:
       <<: *common-env
@@ -194,7 +194,7 @@ services:
     networks: [bima]
     depends_on:
       - gateway
-    image: ${IMAGE_PREFIX:-ghcr.io/davidnjau/bima-care}-web:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-web:${IMAGE_TAG:-latest}
     container_name: bima-web
     ports:
       - "80:80"
