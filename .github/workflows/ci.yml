@@ -128,11 +128,17 @@ jobs:
       # idempotent, and this file is fully overwritten from secrets each time.
       - name: Render infra/.env from secrets
         run: |
+          # Keycloak's --hostname flag wants a bare hostname, not a URL - derived here
+          # rather than adding a whole extra secret that has to be kept in sync with
+          # PUBLIC_KEYCLOAK_URL by hand.
+          KEYCLOAK_HOSTNAME=$(echo "${{ secrets.PUBLIC_KEYCLOAK_URL }}" | sed -E 's#^https?://##')
           cat > infra/.env <<EOF
           POSTGRES_USER=bima
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           KEYCLOAK_ADMIN_USER=admin
           KEYCLOAK_ADMIN_PASSWORD=${{ secrets.KEYCLOAK_ADMIN_PASSWORD }}
+          KEYCLOAK_HOSTNAME=$KEYCLOAK_HOSTNAME
+          CADDY_EMAIL=${{ secrets.CADDY_EMAIL }}
           MINIO_ROOT_USER=bima
           MINIO_ROOT_PASSWORD=${{ secrets.MINIO_ROOT_PASSWORD }}
           MINIO_BUCKET=bima-documents
@@ -151,7 +157,7 @@ jobs:
       # path handling - a single file sidesteps any ambiguity about whether relative
       # directory structure survives the copy.
       - name: Package infra config
-        run: tar -czf infra-bundle.tar.gz infra/docker-compose.infra.yml infra/docker-compose.apps.yml infra/postgres infra/keycloak infra/.env
+        run: tar -czf infra-bundle.tar.gz infra/docker-compose.infra.yml infra/docker-compose.apps.yml infra/postgres infra/keycloak infra/caddy infra/.env
 
       - name: Copy bundle to the VPS
         uses: appleboy/scp-action@v0.1.7

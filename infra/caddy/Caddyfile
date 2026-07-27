@@ -1,0 +1,23 @@
+{
+	email {$CADDY_EMAIL:webmaster@bimacare.online}
+}
+
+# www redirects to the apex domain rather than serving identical content - the browser's
+# CORS preflight sends whichever Origin the user actually landed on, and the gateway's
+# WEB_APP_ORIGIN only allows one. Canonicalizing to the apex avoids a mismatch that would
+# only show up as an intermittent CORS failure depending on which hostname the user typed.
+www.bimacare.online {
+	redir https://bimacare.online{uri} permanent
+}
+
+bimacare.online {
+	reverse_proxy web:80
+}
+
+api.bimacare.online {
+	reverse_proxy gateway:8080
+}
+
+auth.bimacare.online {
+	reverse_proxy keycloak:8080
+}

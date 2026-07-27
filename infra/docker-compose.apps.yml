@@ -3,9 +3,10 @@
 # first). Images are built and pushed by .github/workflows/ci.yml on every merge to main;
 # this file only ever pulls prebuilt images, it never builds from source on the VPS.
 #
-# Only the gateway (browser's API entry point) and Keycloak (in docker-compose.infra.yml)
-# are reachable from outside the VPS - every other service here talks to Postgres/Kafka and
-# to each other purely over the internal `bima` network, by container name.
+# Nothing here publishes a host port - Caddy (docker-compose.infra.yml) is the sole public
+# entry point, reverse-proxying to the gateway and web containers by name over the internal
+# `bima` network. Every other service here is reachable only from other containers, never
+# from outside the VPS at all.
 x-common-env: &common-env
   KEYCLOAK_ISSUER: ${PUBLIC_KEYCLOAK_ISSUER:?PUBLIC_KEYCLOAK_ISSUER must be set in .env - see .env.example}
   KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -45,8 +46,8 @@ services:
       <<: *common-env
       PORT: 8080
       WEB_APP_ORIGIN: ${PUBLIC_WEB_ORIGIN:?PUBLIC_WEB_ORIGIN must be set in .env}
-    ports:
-      - "8080:8080"
+    # No host port published - reachable only via Caddy (api.bimacare.online), on the
+    # internal `bima` network.
 
   iam-service:
     <<: *service-defaults
@@ -196,8 +197,8 @@ services:
       - gateway
     image: ${IMAGE_PREFIX:-docker.io/davidnjau21/bima-care}-web:${IMAGE_TAG:-latest}
     container_name: bima-web
-    ports:
-      - "80:80"
+    # No host port published - reachable only via Caddy (bimacare.online), on the internal
+    # `bima` network.
 
 networks:
   bima:
