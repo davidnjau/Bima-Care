@@ -97,6 +97,18 @@ services:
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set in .env}
+      # Without this, Keycloak falls back to its embedded dev database, which lives only in
+      # the container's writable layer - no volume backs it, so any recreate (image bump,
+      # command/env change, etc.) silently wipes the master admin user, every realm change
+      # made through the admin console, and any real user Keycloak has provisioned. Backing
+      # it with the same Postgres everything else uses makes that state survive redeploys.
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER:-bima}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
     healthcheck:
