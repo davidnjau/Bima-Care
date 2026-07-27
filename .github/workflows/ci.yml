@@ -190,6 +190,10 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          # Default is 10m, which a cold first deploy (pulling ~19 images with nothing
+          # cached yet) can genuinely exceed. Later deploys only pull changed layers and
+          # will be much faster, but this needs enough headroom for the first one.
+          command_timeout: 40m
           script: |
             set -euo pipefail
             mkdir -p ~/bima-care
