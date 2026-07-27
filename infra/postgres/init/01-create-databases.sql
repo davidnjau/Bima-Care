@@ -9,3 +9,4 @@ CREATE DATABASE audit_service;
 CREATE DATABASE consent_service;
 CREATE DATABASE document_service;
 CREATE DATABASE hapi_fhir_server;
+CREATE DATABASE keycloak;

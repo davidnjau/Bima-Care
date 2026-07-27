@@ -17,7 +17,10 @@ zero manual cert management. Nothing else publishes a host port at all.
 ## How it fits together
 
 - `infra/docker-compose.infra.yml` - Postgres, Kafka, MinIO, the HAPI FHIR server, Keycloak,
-  and Caddy. Caddy is the only container publishing a host port (80/443).
+  and Caddy. Caddy is the only container publishing a host port (80/443). Keycloak stores its
+  own state (master realm, admin user, everything `realm-export.json` imports) in a dedicated
+  `keycloak` database in the same Postgres - not its embedded default database - so a
+  container recreate (new image, config change, etc.) never wipes it.
 - `infra/docker-compose.apps.yml` - the gateway, all 13 microservices, and the web frontend.
   Pulls prebuilt images from Docker Hub; never builds from source on the VPS.
 - `infra/caddy/Caddyfile` - routes each of the three hostnames to its container by name.
