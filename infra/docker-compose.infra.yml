@@ -1,8 +1,8 @@
-# Production infra layer - Postgres, Kafka, MinIO, the HAPI FHIR server, and Keycloak.
-# Brought up once during provisioning (see deploy/provision.sh) and left running across
-# app deploys. Unlike docker-compose.yml (local dev), nothing here is published to a host
-# port except Keycloak - the browser needs to reach it directly for the direct-grant login
-# flow. Everything else is reachable only by app containers on the shared `bima` network.
+# Production infra layer - Postgres, Kafka, MinIO, the HAPI FHIR server, Keycloak, and the
+# Caddy reverse proxy. Brought up once during provisioning and left running across app
+# deploys. Caddy is the only thing published to the host (80/443, for Let's Encrypt's ACME
+# challenge and actual traffic) - everything else, Keycloak included, is reachable only over
+# the internal `bima` network, proxied through Caddy by hostname.
 services:
   postgres:
     image: postgres:16-alpine
@@ -87,16 +87,16 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
     container_name: bima-keycloak
-    # Production start mode (not start-dev). No TLS/domain yet (see ROADMAP.md /
-    # deploy/README.md), so http-enabled+hostname-strict=false relax Keycloak's usual
-    # HTTPS-and-real-hostname requirements - tighten this once a domain + reverse proxy
-    # with TLS are added.
-    command: start --import-realm --http-enabled=true --hostname-strict=false --proxy-headers=xforwarded
+    # Production start mode (not start-dev). Caddy terminates real TLS in front of this and
+    # forwards plain HTTP internally (--proxy-headers=xforwarded tells Keycloak to trust
+    # that and treat the connection as HTTPS for redirect URIs/cookies) - Keycloak itself
+    # still only speaks HTTP on its own port. --hostname pins the exact externally-visible
+    # hostname so every issuer/link Keycloak generates matches what the browser actually
+    # used, regardless of what Host header a request arrives with.
+    command: start --import-realm --http-enabled=true --hostname=${KEYCLOAK_HOSTNAME:?KEYCLOAK_HOSTNAME must be set in .env} --proxy-headers=xforwarded
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set in .env}
-    ports:
-      - "8180:8080"
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
     healthcheck:
@@ -113,6 +113,21 @@ services:
     restart: unless-stopped
     networks: [bima]
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: bima-caddy
+    environment:
+      CADDY_EMAIL: ${CADDY_EMAIL:-webmaster@bimacare.online}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    networks: [bima]
+
 networks:
   bima:
     name: bima-network
@@ -122,3 +137,5 @@ volumes:
   postgres-data:
   kafka-data:
   minio-data:
+  caddy-data:
+  caddy-config:
