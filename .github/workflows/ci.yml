@@ -29,9 +29,6 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     strategy:
       matrix:
         service:
@@ -73,16 +70,11 @@ jobs:
       - name: Build shadow jar
         run: ./gradlew ${{ steps.resolve.outputs.module }}:shadowJar -x test -x detekt -x ktlintCheck
 
-      - name: Lowercase image owner
-        id: owner
-        run: echo "name=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
-
-      - name: Log in to GHCR
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -90,30 +82,22 @@ jobs:
           context: ${{ steps.resolve.outputs.context }}
           push: true
           tags: |
-            ghcr.io/${{ steps.owner.outputs.name }}/bima-care-${{ matrix.service }}:latest
-            ghcr.io/${{ steps.owner.outputs.name }}/bima-care-${{ matrix.service }}:${{ github.sha }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/bima-care-${{ matrix.service }}:latest
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/bima-care-${{ matrix.service }}:${{ github.sha }}
 
   build-web-image:
     name: Build & push web image
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Lowercase image owner
-        id: owner
-        run: echo "name=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
-
-      - name: Log in to GHCR
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -127,8 +111,8 @@ jobs:
             VITE_KEYCLOAK_URL=${{ secrets.PUBLIC_KEYCLOAK_URL }}
             VITE_API_BASE_URL=${{ secrets.PUBLIC_API_BASE_URL }}
           tags: |
-            ghcr.io/${{ steps.owner.outputs.name }}/bima-care-web:latest
-            ghcr.io/${{ steps.owner.outputs.name }}/bima-care-web:${{ github.sha }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/bima-care-web:latest
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/bima-care-web:${{ github.sha }}
 
   deploy:
     name: Deploy to VPS
@@ -137,10 +121,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Lowercase image owner
-        id: owner
-        run: echo "name=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       # Everything the VPS needs to run is generated or copied here, every deploy - the VPS
       # itself holds no persistent config of its own beyond what this step and the next one
@@ -161,7 +141,7 @@ jobs:
           IAM_PROVISIONER_CLIENT_SECRET=${{ secrets.IAM_PROVISIONER_CLIENT_SECRET }}
           PUBLIC_KEYCLOAK_ISSUER=${{ secrets.PUBLIC_KEYCLOAK_URL }}/realms/bima-care
           PUBLIC_WEB_ORIGIN=${{ secrets.PUBLIC_WEB_ORIGIN }}
-          IMAGE_PREFIX=ghcr.io/${{ steps.owner.outputs.name }}/bima-care
+          IMAGE_PREFIX=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/bima-care
           IMAGE_TAG=${{ github.sha }}
           DEMO_PROVIDER_IDENTITIES=${{ secrets.DEMO_PROVIDER_IDENTITIES }}
           DEMO_INSURER_IDENTITIES=${{ secrets.DEMO_INSURER_IDENTITIES }}
