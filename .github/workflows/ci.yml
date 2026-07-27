@@ -204,6 +204,16 @@ jobs:
             # postgres/kafka/keycloak, which only exist in docker-compose.infra.yml, so BOTH
             # files must be passed together on every invocation, `pull` included.
             COMPOSE_FILES="-f docker-compose.infra.yml -f docker-compose.apps.yml"
+            # Keycloak needs its own database before it can start. 01-create-databases.sql
+            # only runs against a brand-new postgres-data volume, so on an already-provisioned
+            # VPS it never fires - create it here instead, idempotently, so both a fresh VPS
+            # and an existing one end up with it. POSTGRES_USER is always "bima" (see the
+            # render step above) - reading it straight from the container avoids sourcing
+            # the whole .env file, which would break on any secret containing shell metachars.
+            docker compose --env-file .env $COMPOSE_FILES up -d postgres
+            until docker exec bima-postgres pg_isready -U bima >/dev/null 2>&1; do sleep 2; done
+            docker exec bima-postgres psql -U bima -tc "SELECT 1 FROM pg_database WHERE datname = 'keycloak'" | grep -q 1 \
+              || docker exec bima-postgres psql -U bima -c "CREATE DATABASE keycloak"
             docker compose --env-file .env $COMPOSE_FILES pull
             docker compose --env-file .env $COMPOSE_FILES up -d --remove-orphans
             docker image prune -f
