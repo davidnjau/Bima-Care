@@ -40,8 +40,8 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
-      "redirectUris": ["http://localhost:8080/*"],
-      "webOrigins": ["http://localhost:8080"],
+      "redirectUris": ["http://localhost:8080/*", "https://api.bimacare.online/*"],
+      "webOrigins": ["http://localhost:8080", "https://api.bimacare.online"],
       "secret": "7z6I2}2K7t\\)ii,5k\"SGz0pKlP"
     },
     {
@@ -51,8 +51,8 @@
       "protocol": "openid-connect",
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": true,
-      "redirectUris": ["http://localhost:5173/*"],
-      "webOrigins": ["http://localhost:5173"],
+      "redirectUris": ["http://localhost:5173/*", "https://bimacare.online/*"],
+      "webOrigins": ["http://localhost:5173", "https://bimacare.online"],
       "protocolMappers": [
         {
           "name": "patientId",
