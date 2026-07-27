@@ -100,9 +100,12 @@ services:
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
     healthcheck:
-      # The realm's own issuer metadata endpoint - only responds once the server is up
-      # AND the realm-export.json import has completed.
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/realms/bima-care >/dev/null 2>&1 || exit 1"]
+      # Keycloak's official image (RHEL UBI-based) has neither wget nor curl - confirmed via
+      # `docker exec bima-keycloak sh -c "command -v wget curl"` returning nothing. bash's
+      # /dev/tcp is available instead (confirmed the same way), and CMD-SHELL runs via
+      # /bin/sh, which is bash on this image. Single-quoted so YAML doesn't touch the \r\n
+      # escapes - they need to reach printf literally, not get converted by the YAML parser.
+      test: ['CMD-SHELL', 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf "GET /realms/bima-care HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 && head -1 <&3 | grep -q 200']
       interval: 10s
       timeout: 10s
       retries: 18
