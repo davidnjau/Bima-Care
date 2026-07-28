@@ -32,6 +32,8 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+private const val POLICY_NUMBER_SUFFIX_LENGTH = 8
+
 class PolicyRouteDependencies(
     val repository: PolicyRepository,
     val publisher: EligibilityEventPublisher,
@@ -81,17 +83,22 @@ private suspend fun createPolicy(
     val premium =
         runCatching { BigDecimal(request.premium) }
             .getOrElse { throw ValidationException("Invalid premium: ${request.premium}") }
+    val startDate = parseDate(request.startDate, "startDate")
+    val endDate = request.endDate?.let { parseDate(it, "endDate") }
+    if (endDate != null && !endDate.isAfter(startDate)) {
+        throw ValidationException("endDate must be after startDate")
+    }
 
     val policy =
         Policy(
             id = UUID.randomUUID(),
             insurerId = insurerId,
-            policyNumber = request.policyNumber,
+            policyNumber = generatePolicyNumber(),
             name = request.name,
             type = type,
             premium = premium,
-            startDate = parseDate(request.startDate, "startDate"),
-            endDate = request.endDate?.let { parseDate(it, "endDate") },
+            startDate = startDate,
+            endDate = endDate,
             status = PolicyStatus.ACTIVE,
         )
     val created = deps.repository.create(policy)
@@ -140,6 +147,11 @@ private fun parseId(
     raw: String?,
     field: String,
 ): UUID = runCatching { UUID.fromString(raw) }.getOrElse { throw ValidationException("Invalid $field: $raw") }
+
+// e.g. POL-2026-4F9A2B1C - year plus 8 random hex chars is unique enough at this volume
+// without a DB round-trip to check for collisions.
+private fun generatePolicyNumber(): String =
+    "POL-${LocalDate.now().year}-${UUID.randomUUID().toString().take(POLICY_NUMBER_SUFFIX_LENGTH).uppercase()}"
 
 private fun parseDate(
     raw: String,
