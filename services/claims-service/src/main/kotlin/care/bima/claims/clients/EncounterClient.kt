@@ -13,11 +13,12 @@ class EncounterClient(
 ) {
     suspend fun createEncounter(
         patientId: UUID,
-        practitionerId: UUID,
+        practitionerId: UUID?,
         organizationId: UUID,
     ): UUID {
+        val practitionerField = practitionerId?.let { "\"$it\"" } ?: "null"
         val body =
-            """{"patientId":"$patientId","practitionerId":"$practitionerId","organizationId":"$organizationId"}"""
+            """{"patientId":"$patientId","practitionerId":$practitionerField,"organizationId":"$organizationId"}"""
         val response = client.post("$encounterServiceUrl/encounters", body)
         val json = Json.parseToJsonElement(response.bodyAsText()).jsonObject
         return UUID.fromString(json.getValue("id").jsonPrimitive.content)

@@ -1,10 +1,12 @@
 package care.bima.claims.api
 
+import care.bima.claims.clients.DocumentClient
 import care.bima.claims.clients.EligibilityClient
 import care.bima.claims.clients.EncounterClient
 import care.bima.claims.db.ClaimRepository
 import care.bima.claims.domain.Claim
 import care.bima.claims.domain.ClaimStatus
+import care.bima.claims.domain.ClaimType
 import care.bima.claims.events.ClaimEventPublisher
 import care.bima.claims.fhir.ClaimFhirMapper
 import care.bima.claims.identity.DemoProviderIdentityResolver
@@ -12,6 +14,7 @@ import care.bima.shared.fhir.FhirContextProvider
 import care.bima.shared.service.ErrorResponse
 import care.bima.shared.service.NotFoundException
 import care.bima.shared.service.ValidationException
+import care.bima.shared.service.patientId
 import care.bima.shared.service.realmRoles
 import care.bima.shared.service.username
 import io.ktor.http.ContentType
@@ -37,6 +40,7 @@ class ClaimRouteDependencies(
     val publisher: ClaimEventPublisher,
     val eligibilityClient: EligibilityClient,
     val encounterClient: EncounterClient,
+    val documentClient: DocumentClient,
     val identityResolver: DemoProviderIdentityResolver,
 )
 
@@ -44,6 +48,7 @@ fun Routing.claimRoutes(deps: ClaimRouteDependencies) {
     authenticate("keycloak") {
         route("/claims") {
             post { submitClaim(call, deps) }
+            post("/reimbursement") { submitReimbursementClaim(call, deps) }
 
             get("/{id}") {
                 val id = parseId(call.parameters["id"], "id")
@@ -106,6 +111,70 @@ private suspend fun submitClaim(
             requestedAmount = amount,
             approvedAmount = null,
             status = ClaimStatus.SUBMITTED,
+            claimType = ClaimType.PROVIDER_SUBMITTED,
+            dateOfService = null,
+            claimFormDocumentId = null,
+            itemizedReceiptDocumentId = null,
+            etrDocumentId = null,
+            submittedAt = LocalDateTime.now(),
+            adjudicatedAt = null,
+        )
+
+    val created = deps.repository.create(claim)
+    deps.publisher.publishClaimSubmitted(created)
+    call.respond(HttpStatusCode.Created, created.toResponse())
+}
+
+private suspend fun submitReimbursementClaim(
+    call: ApplicationCall,
+    deps: ClaimRouteDependencies,
+) {
+    val principal = call.principal<JWTPrincipal>()
+    if ("Member" !in (principal?.realmRoles() ?: emptyList())) {
+        call.respond(HttpStatusCode.Forbidden, ErrorResponse("Member role required to submit a reimbursement claim"))
+        return
+    }
+    val patientId =
+        principal
+            ?.patientId()
+            ?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            ?: throw ValidationException("Token has no patientId claim")
+
+    val request = call.receive<SubmitReimbursementClaimRequest>()
+    val organizationId = parseId(request.organizationId, "organizationId")
+    val amount =
+        runCatching { BigDecimal(request.amount) }
+            .getOrElse { throw ValidationException("Invalid amount: ${request.amount}") }
+    val dateOfService = parseDateOfService(request.dateOfService)
+    val (claimFormDocumentId, itemizedReceiptDocumentId, etrDocumentId) =
+        verifyReimbursementDocuments(deps, patientId, request)
+
+    val eligibility = deps.eligibilityClient.verifyEligibility(patientId)
+    if (!eligibility.eligible || eligibility.coverageId == null) {
+        throw ValidationException("Patient $patientId has no active coverage")
+    }
+
+    val encounterId = deps.encounterClient.createEncounter(patientId, practitionerId = null, organizationId)
+
+    val claim =
+        Claim(
+            id = UUID.randomUUID(),
+            patientId = patientId,
+            encounterId = encounterId,
+            coverageId = eligibility.coverageId,
+            practitionerId = null,
+            organizationId = organizationId,
+            serviceType = request.serviceType,
+            diagnosisCode = request.diagnosisCode,
+            treatmentDetails = request.treatmentDetails,
+            requestedAmount = amount,
+            approvedAmount = null,
+            status = ClaimStatus.SUBMITTED,
+            claimType = ClaimType.MEMBER_REIMBURSEMENT,
+            dateOfService = dateOfService,
+            claimFormDocumentId = claimFormDocumentId,
+            itemizedReceiptDocumentId = itemizedReceiptDocumentId,
+            etrDocumentId = etrDocumentId,
             submittedAt = LocalDateTime.now(),
             adjudicatedAt = null,
         )
@@ -165,7 +234,8 @@ private fun resolveApprovedAmount(
         else -> null
     }
 
-private fun parseId(
+// internal, not private - also called from ReimbursementValidation.kt in this same package.
+internal fun parseId(
     raw: String?,
     field: String,
 ): UUID = runCatching { UUID.fromString(raw) }.getOrElse { throw ValidationException("Invalid $field: $raw") }
@@ -179,7 +249,7 @@ private fun Claim.toResponse() =
         patientId = patientId.toString(),
         encounterId = encounterId.toString(),
         coverageId = coverageId.toString(),
-        practitionerId = practitionerId.toString(),
+        practitionerId = practitionerId?.toString(),
         organizationId = organizationId.toString(),
         serviceType = serviceType,
         diagnosisCode = diagnosisCode,
@@ -187,6 +257,11 @@ private fun Claim.toResponse() =
         requestedAmount = requestedAmount.toPlainString(),
         approvedAmount = approvedAmount?.toPlainString(),
         status = status.name,
+        claimType = claimType.name,
+        dateOfService = dateOfService?.toString(),
+        claimFormDocumentId = claimFormDocumentId?.toString(),
+        itemizedReceiptDocumentId = itemizedReceiptDocumentId?.toString(),
+        etrDocumentId = etrDocumentId?.toString(),
         submittedAt = submittedAt.toString(),
         adjudicatedAt = adjudicatedAt?.toString(),
     )

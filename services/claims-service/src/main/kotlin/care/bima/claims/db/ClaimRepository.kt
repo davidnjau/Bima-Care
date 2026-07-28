@@ -2,6 +2,7 @@ package care.bima.claims.db
 
 import care.bima.claims.domain.Claim
 import care.bima.claims.domain.ClaimStatus
+import care.bima.claims.domain.ClaimType
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.andWhere
@@ -34,6 +35,11 @@ class ClaimRepository {
                 it[requestedAmount] = claim.requestedAmount
                 it[approvedAmount] = claim.approvedAmount
                 it[status] = claim.status.name
+                it[claimType] = claim.claimType.name
+                it[dateOfService] = claim.dateOfService
+                it[claimFormDocumentId] = claim.claimFormDocumentId
+                it[itemizedReceiptDocumentId] = claim.itemizedReceiptDocumentId
+                it[etrDocumentId] = claim.etrDocumentId
                 it[submittedAt] = claim.submittedAt
                 it[adjudicatedAt] = claim.adjudicatedAt
             }
@@ -89,6 +95,11 @@ class ClaimRepository {
             requestedAmount = this[ClaimsTable.requestedAmount],
             approvedAmount = this[ClaimsTable.approvedAmount],
             status = ClaimStatus.valueOf(this[ClaimsTable.status]),
+            claimType = ClaimType.valueOf(this[ClaimsTable.claimType]),
+            dateOfService = this[ClaimsTable.dateOfService],
+            claimFormDocumentId = this[ClaimsTable.claimFormDocumentId],
+            itemizedReceiptDocumentId = this[ClaimsTable.itemizedReceiptDocumentId],
+            etrDocumentId = this[ClaimsTable.etrDocumentId],
             submittedAt = this[ClaimsTable.submittedAt],
             adjudicatedAt = this[ClaimsTable.adjudicatedAt],
         )

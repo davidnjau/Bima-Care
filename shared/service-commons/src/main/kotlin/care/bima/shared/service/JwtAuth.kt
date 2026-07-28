@@ -40,3 +40,5 @@ fun JWTPrincipal.realmRoles(): List<String> {
 }
 
 fun JWTPrincipal.username(): String? = payload.getClaim("preferred_username").asString()
+
+fun JWTPrincipal.patientId(): String? = payload.getClaim("patientId").asString()

@@ -8,8 +8,11 @@ import care.bima.document.events.DocumentEventPublisher
 import care.bima.document.fhir.DocumentReferenceFhirMapper
 import care.bima.document.storage.ObjectStorageClient
 import care.bima.shared.fhir.FhirContextProvider
+import care.bima.shared.service.ErrorResponse
 import care.bima.shared.service.NotFoundException
 import care.bima.shared.service.ValidationException
+import care.bima.shared.service.patientId
+import care.bima.shared.service.realmRoles
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -20,6 +23,8 @@ import io.ktor.http.content.streamProvider
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.auth.authenticate
+import io.ktor.server.auth.jwt.JWTPrincipal
+import io.ktor.server.auth.principal
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
@@ -87,10 +92,7 @@ fun Routing.documentRoutes(deps: DocumentRouteDependencies) {
     }
 }
 
-private suspend fun uploadDocument(
-    call: ApplicationCall,
-    deps: DocumentRouteDependencies,
-) {
+private suspend fun parseUploadForm(call: ApplicationCall): UploadForm {
     val form = UploadForm()
     call.receiveMultipart().forEachPart { part ->
         when (part) {
@@ -109,11 +111,34 @@ private suspend fun uploadDocument(
         }
         part.dispose()
     }
+    return form
+}
+
+// Members may only ever upload documents tagged with their own patientId - anyone else
+// (Admin/Provider/Insurer) uploads on a patient's behalf, unrestricted.
+private fun canUploadFor(
+    principal: JWTPrincipal?,
+    patientId: UUID,
+): Boolean {
+    val isMember = "Member" in (principal?.realmRoles() ?: emptyList())
+    return !isMember || principal?.patientId() == patientId.toString()
+}
+
+private suspend fun uploadDocument(
+    call: ApplicationCall,
+    deps: DocumentRouteDependencies,
+) {
+    val form = parseUploadForm(call)
 
     val patientId = parseId(form.patientId, "patientId")
     val title = form.title ?: throw ValidationException("Missing title")
     val category = form.category ?: throw ValidationException("Missing category")
     val bytes = form.bytes ?: throw ValidationException("Missing file content")
+
+    if (!canUploadFor(call.principal<JWTPrincipal>(), patientId)) {
+        call.respond(HttpStatusCode.Forbidden, ErrorResponse("Members can only upload documents for themselves"))
+        return
+    }
 
     if (!deps.referenceValidationClient.patientExists(patientId)) {
         throw ValidationException("Patient $patientId not found")

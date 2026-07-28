@@ -4,7 +4,7 @@ import { useMemberStore } from '../../stores/member'
 import { getClaimFhir, listClaims, type Claim } from '../../api/claims'
 import { getPatient } from '../../api/patients'
 import { listOrganizations, type Organization } from '../../api/organizations'
-import { claimFields } from '../../lib/claimFields'
+import { claimDocuments, claimFields } from '../../lib/claimFields'
 import { formatDate } from '../../lib/formatDate'
 import StatusBadge from '../../components/StatusBadge.vue'
 import RecordDetailModal from '../../components/RecordDetailModal.vue'
@@ -109,6 +109,7 @@ onMounted(load)
       v-if="viewingClaim"
       :title="`Claim ${viewingClaim.id.slice(0, 8)}`"
       :fields="viewFields(viewingClaim)"
+      :documents="claimDocuments(viewingClaim)"
       :load-fhir="() => getClaimFhir(viewingClaim!.id)"
       :resolve-reference="resolveClaimReference"
       @close="viewingClaim = null"

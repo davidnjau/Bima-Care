@@ -128,6 +128,11 @@ const router = createRouter({
           component: () => import('../views/member/ClaimsHistoryView.vue'),
         },
         {
+          path: 'submit-claim',
+          name: 'member-submit-claim',
+          component: () => import('../views/member/SubmitClaimView.vue'),
+        },
+        {
           path: 'dependents',
           name: 'member-dependents',
           component: () => import('../views/member/DependentsView.vue'),
