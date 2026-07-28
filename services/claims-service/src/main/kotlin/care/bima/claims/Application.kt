@@ -2,6 +2,7 @@ package care.bima.claims
 
 import care.bima.claims.api.ClaimRouteDependencies
 import care.bima.claims.api.claimRoutes
+import care.bima.claims.clients.DocumentClient
 import care.bima.claims.clients.EligibilityClient
 import care.bima.claims.clients.EncounterClient
 import care.bima.claims.db.ClaimRepository
@@ -32,9 +33,18 @@ fun main() {
     val serviceClient = ServiceToServiceClient()
     val eligibilityClient = EligibilityClient(serviceClient)
     val encounterClient = EncounterClient(serviceClient)
+    val documentClient = DocumentClient(serviceClient)
     val identityResolver = DemoProviderIdentityResolver()
 
-    val deps = ClaimRouteDependencies(repository, publisher, eligibilityClient, encounterClient, identityResolver)
+    val deps =
+        ClaimRouteDependencies(
+            repository,
+            publisher,
+            eligibilityClient,
+            encounterClient,
+            documentClient,
+            identityResolver,
+        )
 
     embeddedServer(
         Netty,

@@ -5,7 +5,7 @@ export interface Claim {
   patientId: string
   encounterId: string
   coverageId: string
-  practitionerId: string
+  practitionerId: string | null
   organizationId: string
   serviceType: string
   diagnosisCode: string
@@ -13,6 +13,12 @@ export interface Claim {
   requestedAmount: string
   approvedAmount: string | null
   status: string
+  // PROVIDER_SUBMITTED or MEMBER_REIMBURSEMENT
+  claimType: string
+  dateOfService: string | null
+  claimFormDocumentId: string | null
+  itemizedReceiptDocumentId: string | null
+  etrDocumentId: string | null
   submittedAt: string
   adjudicatedAt: string | null
 }
@@ -23,6 +29,19 @@ export interface SubmitClaimRequest {
   diagnosisCode: string
   treatmentDetails: string
   amount: string
+}
+
+// No patientId - the gateway resolves the submitting member's own patientId from their JWT.
+export interface SubmitReimbursementClaimRequest {
+  organizationId: string
+  serviceType: string
+  diagnosisCode: string
+  treatmentDetails: string
+  amount: string
+  dateOfService: string
+  claimFormDocumentId: string
+  itemizedReceiptDocumentId: string
+  etrDocumentId: string
 }
 
 export interface AdjudicateClaimRequest {
@@ -38,6 +57,11 @@ export interface ListClaimsParams {
 
 export async function submitClaim(request: SubmitClaimRequest): Promise<Claim> {
   const response = await apiClient.post<Claim>('/claims', request)
+  return response.data
+}
+
+export async function submitReimbursementClaim(request: SubmitReimbursementClaimRequest): Promise<Claim> {
+  const response = await apiClient.post<Claim>('/claims/reimbursement', request)
   return response.data
 }
 

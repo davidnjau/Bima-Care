@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import Modal from './Modal.vue'
 import FhirResourceView from './FhirResourceView.vue'
+import { downloadDocument } from '../api/documents'
 
 const props = defineProps<{
   title: string
@@ -10,12 +11,25 @@ const props = defineProps<{
   // section only renders when a loader is supplied.
   loadFhir?: () => Promise<unknown>
   resolveReference?: (reference: string) => string | null | undefined
+  // Attached document ids (e.g. a reimbursement claim's claim form/receipt/ETR) - omit for
+  // records with nothing attached.
+  documents?: { label: string; documentId: string }[]
 }>()
 defineEmits<{ close: [] }>()
 
 const fhirResource = ref<Record<string, unknown> | null>(null)
 const fhirLoading = ref(false)
 const fhirError = ref('')
+const downloadError = ref('')
+
+async function download(doc: { label: string; documentId: string }) {
+  downloadError.value = ''
+  try {
+    await downloadDocument(doc.documentId, doc.label)
+  } catch (e) {
+    downloadError.value = e instanceof Error ? e.message : `Failed to download ${doc.label}.`
+  }
+}
 
 onMounted(async () => {
   if (!props.loadFhir) return
@@ -40,6 +54,22 @@ onMounted(async () => {
         <dd>{{ field.value || '—' }}</dd>
       </template>
     </dl>
+
+    <template v-if="documents?.length">
+      <h4 class="text-xs font-bold uppercase tracking-wide text-muted mb-2">Documents</h4>
+      <p v-if="downloadError" class="text-critical text-sm mb-2">{{ downloadError }}</p>
+      <div class="flex flex-wrap gap-2 mb-6">
+        <button
+          v-for="doc in documents"
+          :key="doc.documentId"
+          type="button"
+          class="border border-line-strong rounded-[7px] px-3 py-1.5 text-xs font-semibold hover:bg-brand-tint"
+          @click="download(doc)"
+        >
+          Download {{ doc.label }}
+        </button>
+      </div>
+    </template>
 
     <template v-if="loadFhir">
       <h4 class="text-xs font-bold uppercase tracking-wide text-muted mb-2 flex items-center gap-2">

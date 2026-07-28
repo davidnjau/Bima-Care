@@ -214,6 +214,26 @@ jobs:
             until docker exec bima-postgres pg_isready -U bima >/dev/null 2>&1; do sleep 2; done
             docker exec bima-postgres psql -U bima -tc "SELECT 1 FROM pg_database WHERE datname = 'keycloak'" | grep -q 1 \
               || docker exec bima-postgres psql -U bima -c "CREATE DATABASE keycloak"
+            # Member reimbursement claims (claim_type/documents/date_of_service, nullable
+            # practitioner_id) - Exposed's SchemaUtils.create() never alters an existing table,
+            # so these need to be applied by hand on an already-provisioned VPS. `IF EXISTS`/
+            # `IF NOT EXISTS` make every statement a no-op on a fresh install too, where the
+            # claims/encounters tables don't exist yet until each service's own first startup
+            # creates them (already matching the new schema) - safe to run unconditionally.
+            docker exec bima-postgres psql -U bima -d claims_service -c \
+              "ALTER TABLE IF EXISTS claims ALTER COLUMN practitioner_id DROP NOT NULL;"
+            docker exec bima-postgres psql -U bima -d claims_service -c \
+              "ALTER TABLE IF EXISTS claims ADD COLUMN IF NOT EXISTS claim_type VARCHAR(32) NOT NULL DEFAULT 'PROVIDER_SUBMITTED';"
+            docker exec bima-postgres psql -U bima -d claims_service -c \
+              "ALTER TABLE IF EXISTS claims ADD COLUMN IF NOT EXISTS date_of_service DATE;"
+            docker exec bima-postgres psql -U bima -d claims_service -c \
+              "ALTER TABLE IF EXISTS claims ADD COLUMN IF NOT EXISTS claim_form_document_id UUID;"
+            docker exec bima-postgres psql -U bima -d claims_service -c \
+              "ALTER TABLE IF EXISTS claims ADD COLUMN IF NOT EXISTS itemized_receipt_document_id UUID;"
+            docker exec bima-postgres psql -U bima -d claims_service -c \
+              "ALTER TABLE IF EXISTS claims ADD COLUMN IF NOT EXISTS etr_document_id UUID;"
+            docker exec bima-postgres psql -U bima -d encounter_service -c \
+              "ALTER TABLE IF EXISTS encounters ALTER COLUMN practitioner_id DROP NOT NULL;"
             docker compose --env-file .env $COMPOSE_FILES pull
             docker compose --env-file .env $COMPOSE_FILES up -d --remove-orphans
             docker image prune -f

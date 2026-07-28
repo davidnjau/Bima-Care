@@ -1,10 +1,10 @@
 package care.bima.gateway
 
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
@@ -12,9 +12,9 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.auth.authenticate
 import io.ktor.server.request.httpMethod
-import io.ktor.server.request.receiveText
+import io.ktor.server.request.receive
 import io.ktor.server.request.uri
-import io.ktor.server.response.respondText
+import io.ktor.server.response.respondBytes
 import io.ktor.server.routing.Routing
 import io.ktor.server.routing.route
 
@@ -45,7 +45,10 @@ private suspend fun proxyRequest(
     val targetUrl = "$baseUrl${call.request.uri}"
     val incomingAuth = call.request.headers["Authorization"]
     val incomingContentType = call.request.headers["Content-Type"]
-    val requestBody = if (call.request.httpMethod in BODY_METHODS) call.receiveText() else null
+    // Read/write raw bytes rather than text - multipart file uploads (e.g. document-service's
+    // upload route) would otherwise get corrupted by a text decode/re-encode round trip. JSON
+    // bodies are valid bytes too, so this is a strict improvement for every proxied route.
+    val requestBody = if (call.request.httpMethod in BODY_METHODS) call.receive<ByteArray>() else null
 
     val response =
         client.request(targetUrl) {
@@ -55,8 +58,8 @@ private suspend fun proxyRequest(
             requestBody?.let { setBody(it) }
         }
 
-    call.respondText(
-        text = response.bodyAsText(),
+    call.respondBytes(
+        bytes = response.body<ByteArray>(),
         contentType = response.headers["Content-Type"]?.let { ContentType.parse(it) },
         status = response.status,
     )

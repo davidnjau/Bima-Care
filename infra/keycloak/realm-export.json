@@ -134,7 +134,7 @@
       "credentials": [
         { "type": "password", "value": "local-dev-only-changeme", "temporary": false }
       ],
-      "realmRoles": []
+      "realmRoles": ["Member"]
     }
   ]
 }

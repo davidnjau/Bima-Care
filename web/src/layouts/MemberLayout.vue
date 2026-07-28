@@ -12,12 +12,17 @@ const patients = ref<Patient[]>([])
 const loading = ref(true)
 const error = ref('')
 
-const isRealMemberSession = computed(() => auth.hasRealSession && auth.isMember)
+// Member role alone isn't enough - member-demo@bimacare.dev has the Member role (so a
+// direct login routes to /member instead of falling through to /admin) but no patientId
+// attribute, so it isn't actually linked to a real patient record. Only a genuinely
+// linked account should skip the demo patient-picker UI below.
+const isRealMemberSession = computed(() => auth.hasRealSession && auth.isMember && !!auth.patientId)
 
 const navItems = [
   { to: '/member/card', label: 'My Card' },
   { to: '/member/benefits', label: 'Policy & Benefits' },
   { to: '/member/claims', label: 'Claims History' },
+  { to: '/member/submit-claim', label: 'Submit Claim' },
   { to: '/member/dependents', label: 'Dependents' },
 ]
 
