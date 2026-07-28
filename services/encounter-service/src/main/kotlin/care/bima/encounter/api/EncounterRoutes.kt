@@ -33,7 +33,7 @@ fun Routing.encounterRoutes(
             post {
                 val request = call.receive<CreateEncounterRequest>()
                 val patientId = parseId(request.patientId, "patientId")
-                val practitionerId = parseId(request.practitionerId, "practitionerId")
+                val practitionerId = request.practitionerId?.let { parseId(it, "practitionerId") }
                 val organizationId = parseId(request.organizationId, "organizationId")
                 val status =
                     runCatching { EncounterStatus.valueOf(request.status.uppercase()) }
@@ -42,7 +42,7 @@ fun Routing.encounterRoutes(
                 if (!referenceValidationClient.patientExists(patientId)) {
                     throw ValidationException("Patient $patientId not found")
                 }
-                if (!referenceValidationClient.practitionerExists(practitionerId)) {
+                if (practitionerId != null && !referenceValidationClient.practitionerExists(practitionerId)) {
                     throw ValidationException("Practitioner $practitionerId not found")
                 }
                 if (!referenceValidationClient.organizationExists(organizationId)) {
@@ -101,7 +101,7 @@ private fun Encounter.toResponse() =
     EncounterResponse(
         id = id.toString(),
         patientId = patientId.toString(),
-        practitionerId = practitionerId.toString(),
+        practitionerId = practitionerId?.toString(),
         organizationId = organizationId.toString(),
         status = status.name,
         startedAt = startedAt.toString(),

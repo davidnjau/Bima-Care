@@ -31,4 +31,25 @@ class EncounterFhirMapperTest {
         assertEquals("Organization/$organizationId", fhirEncounter.serviceProvider.reference)
         assertEquals("Practitioner/$practitionerId", fhirEncounter.participantFirstRep.individual.reference)
     }
+
+    @Test
+    fun omitsParticipantWhenPractitionerIdIsNull() {
+        val patientId = UUID.randomUUID()
+        val organizationId = UUID.randomUUID()
+        val encounter =
+            Encounter(
+                id = UUID.randomUUID(),
+                patientId = patientId,
+                practitionerId = null,
+                organizationId = organizationId,
+                status = EncounterStatus.IN_PROGRESS,
+                startedAt = LocalDateTime.of(2026, 1, 1, 9, 0),
+                endedAt = null,
+            )
+
+        val fhirEncounter = EncounterFhirMapper.toFhir(encounter)
+
+        assertEquals("Organization/$organizationId", fhirEncounter.serviceProvider.reference)
+        assertEquals(0, fhirEncounter.participant.size)
+    }
 }

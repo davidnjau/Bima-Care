@@ -2,6 +2,7 @@ package care.bima.claims.fhir
 
 import care.bima.claims.domain.Claim
 import care.bima.claims.domain.ClaimStatus
+import org.hl7.fhir.r4.model.CodeableConcept
 import org.hl7.fhir.r4.model.Money
 import org.hl7.fhir.r4.model.Reference
 import java.time.ZoneId
@@ -14,7 +15,15 @@ object ClaimFhirMapper {
         FhirClaim().apply {
             id = claim.id.toString()
             patient = Reference("Patient/${claim.patientId}")
-            provider = Reference("Practitioner/${claim.practitionerId}")
+            // MEMBER_REIMBURSEMENT claims have no linked Practitioner - fall back to the
+            // Organization the member named as the responsible party.
+            provider =
+                if (claim.practitionerId != null) {
+                    Reference("Practitioner/${claim.practitionerId}")
+                } else {
+                    Reference("Organization/${claim.organizationId}")
+                }
+            type = CodeableConcept().setText(claim.claimType.name)
             insurance.add(
                 FhirClaim.InsuranceComponent().apply {
                     coverage = Reference("Coverage/${claim.coverageId}")

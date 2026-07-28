@@ -15,7 +15,7 @@ object EncounterFhirMapper {
             id = encounter.id.toString()
             subject = Reference("Patient/${encounter.patientId}")
             serviceProvider = Reference("Organization/${encounter.organizationId}")
-            addParticipant().individual = Reference("Practitioner/${encounter.practitionerId}")
+            encounter.practitionerId?.let { addParticipant().individual = Reference("Practitioner/$it") }
             status =
                 when (encounter.status) {
                     EncounterStatus.IN_PROGRESS -> FhirEncounterStatus.INPROGRESS

@@ -8,7 +8,7 @@ enum class EncounterStatus { IN_PROGRESS, FINISHED, CANCELLED }
 data class Encounter(
     val id: UUID,
     val patientId: UUID,
-    val practitionerId: UUID,
+    val practitionerId: UUID?,
     val organizationId: UUID,
     val status: EncounterStatus,
     val startedAt: LocalDateTime,
