@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import {
   createPolicy,
   getPolicyFhir,
@@ -48,7 +48,6 @@ const showForm = ref(false)
 const saving = ref(false)
 const formError = ref('')
 const form = reactive<CreatePolicyRequest>({
-  policyNumber: '',
   name: '',
   type: 'FAMILY',
   premium: '',
@@ -57,6 +56,14 @@ const form = reactive<CreatePolicyRequest>({
 })
 
 const acting = ref<string | null>(null)
+
+// End date must be strictly after start date - one day later is the earliest valid pick.
+const minEndDate = computed(() => {
+  if (!form.startDate) return undefined
+  const d = new Date(form.startDate)
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().slice(0, 10)
+})
 
 async function load() {
   loading.value = true
@@ -74,11 +81,15 @@ async function load() {
 
 async function onSubmit() {
   formError.value = ''
+  if (form.endDate && form.endDate <= form.startDate) {
+    formError.value = 'End date must be after the start date.'
+    return
+  }
   saving.value = true
   try {
     await createPolicy({ ...form, endDate: form.endDate || undefined })
     showForm.value = false
-    Object.assign(form, { policyNumber: '', name: '', type: 'FAMILY', premium: '', startDate: '', endDate: '' })
+    Object.assign(form, { name: '', type: 'FAMILY', premium: '', startDate: '', endDate: '' })
     await load()
   } catch (e) {
     formError.value = e instanceof Error ? e.message : 'Failed to create policy.'
@@ -125,10 +136,6 @@ onMounted(load)
       @submit.prevent="onSubmit"
     >
       <div class="flex flex-col gap-1.5">
-        <label class="text-xs font-semibold text-muted">Policy number</label>
-        <input v-model="form.policyNumber" required class="border border-line-strong rounded-[7px] px-3 py-2 text-sm" />
-      </div>
-      <div class="flex flex-col gap-1.5">
         <label class="text-xs font-semibold text-muted">Name</label>
         <input v-model="form.name" required class="border border-line-strong rounded-[7px] px-3 py-2 text-sm" />
       </div>
@@ -150,7 +157,12 @@ onMounted(load)
       </div>
       <div class="flex flex-col gap-1.5">
         <label class="text-xs font-semibold text-muted">End date (optional)</label>
-        <input v-model="form.endDate" type="date" class="border border-line-strong rounded-[7px] px-3 py-2 text-sm" />
+        <input
+          v-model="form.endDate"
+          type="date"
+          :min="minEndDate"
+          class="border border-line-strong rounded-[7px] px-3 py-2 text-sm"
+        />
       </div>
 
       <p v-if="formError" class="col-span-2 text-critical text-sm">{{ formError }}</p>
