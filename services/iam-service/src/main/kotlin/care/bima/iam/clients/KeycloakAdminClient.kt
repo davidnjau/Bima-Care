@@ -17,30 +17,56 @@ import kotlin.random.Random
 private const val TEMP_PASSWORD_LENGTH = 12
 private val PASSWORD_CHARS = ('A'..'Z') + ('a'..'z') + ('0'..'9')
 
+private data class AccountAttribute(val key: String, val value: String)
+
 /**
- * Provisions a real Keycloak account for a newly-registered Patient. No forced first-login
- * password reset here (deliberately) - Keycloak's direct-grant flow (what this app's login form
- * uses) cannot fulfil any pending required action, so setting one just locks the account out with
- * an opaque "Account is not fully set up" error. The temp password is immediately usable; a proper
- * change-password UX is a follow-up, not this pass.
+ * Provisions a real Keycloak account for a newly-registered Patient or Organization. No forced
+ * first-login password reset here (deliberately) - Keycloak's direct-grant flow (what this app's
+ * login form uses) cannot fulfil any pending required action, so setting one just locks the
+ * account out with an opaque "Account is not fully set up" error. The temp password is
+ * immediately usable; a proper change-password UX is a follow-up, not this pass.
  */
 class KeycloakAdminClient(
     private val adminServiceClient: ServiceToServiceClient,
     private val adminBaseUrl: String =
         System.getenv("KEYCLOAK_ADMIN_BASE_URL") ?: "http://localhost:8180/admin/realms/bima-care",
 ) {
-    suspend fun provisionMemberAccount(patient: PatientSummary): String {
+    suspend fun provisionMemberAccount(patient: PatientSummary): String =
+        provisionAccount(
+            username = patient.phone,
+            firstName = patient.firstName,
+            lastName = patient.lastName,
+            attribute = AccountAttribute("patientId", patient.id.toString()),
+            roleName = "Member",
+        )
+
+    suspend fun provisionInsurerAccount(organization: OrganizationSummary): String =
+        provisionAccount(
+            username = organization.phone,
+            firstName = organization.name,
+            lastName = "",
+            attribute = AccountAttribute("organizationId", organization.id.toString()),
+            roleName = "Insurer",
+        )
+
+    private suspend fun provisionAccount(
+        username: String,
+        firstName: String,
+        lastName: String,
+        attribute: AccountAttribute,
+        roleName: String,
+    ): String {
         val tempPassword = generateTempPassword()
         val createBody =
             buildJsonObject {
-                put("username", patient.phone)
-                put("firstName", patient.firstName)
-                put("lastName", patient.lastName)
+                put("username", username)
+                put("firstName", firstName)
+                put("lastName", lastName)
                 put("enabled", true)
                 put(
                     "attributes",
                     buildJsonObject {
-                        put("patientId", buildJsonArray { add(JsonPrimitive(patient.id.toString())) })
+                        put(attribute.key, buildJsonArray { add(JsonPrimitive(attribute.value)) })
                     },
                 )
                 put(
@@ -58,12 +84,12 @@ class KeycloakAdminClient(
             }.toString()
 
         val createResponse = adminServiceClient.post("$adminBaseUrl/users", createBody)
-        checkSuccess(createResponse) { "create Keycloak user for ${patient.phone}" }
+        checkSuccess(createResponse) { "create Keycloak user for $username" }
         val userId =
             createResponse.headers["Location"]?.substringAfterLast("/")
-                ?: findUserIdByUsername(patient.phone)
+                ?: findUserIdByUsername(username)
 
-        assignMemberRole(userId)
+        assignRealmRole(userId, roleName)
         return tempPassword
     }
 
@@ -74,15 +100,18 @@ class KeycloakAdminClient(
             .first().jsonObject.getValue("id").jsonPrimitive.content
     }
 
-    private suspend fun assignMemberRole(userId: String) {
-        val roleResponse = adminServiceClient.get("$adminBaseUrl/roles/Member")
-        checkSuccess(roleResponse) { "fetch the Member role definition" }
+    private suspend fun assignRealmRole(
+        userId: String,
+        roleName: String,
+    ) {
+        val roleResponse = adminServiceClient.get("$adminBaseUrl/roles/$roleName")
+        checkSuccess(roleResponse) { "fetch the $roleName role definition" }
         val response =
             adminServiceClient.post(
                 "$adminBaseUrl/users/$userId/role-mappings/realm",
                 "[${roleResponse.bodyAsText()}]",
             )
-        checkSuccess(response) { "assign the Member role to user $userId" }
+        checkSuccess(response) { "assign the $roleName role to user $userId" }
     }
 
     // ServiceToServiceClient/Ktor's default HttpClient doesn't throw on non-2xx responses, so

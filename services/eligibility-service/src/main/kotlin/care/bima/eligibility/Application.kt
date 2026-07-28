@@ -7,7 +7,6 @@ import care.bima.eligibility.clients.ReferenceValidationClient
 import care.bima.eligibility.db.CoverageRepository
 import care.bima.eligibility.db.PolicyRepository
 import care.bima.eligibility.events.EligibilityEventPublisher
-import care.bima.eligibility.identity.DemoInsurerIdentityResolver
 import care.bima.shared.service.ServiceToServiceClient
 import care.bima.shared.service.configureErrorHandling
 import care.bima.shared.service.configureHealthCheck
@@ -37,7 +36,6 @@ fun main() {
             repository = policyRepository,
             publisher = publisher,
             referenceValidationClient = referenceValidationClient,
-            identityResolver = DemoInsurerIdentityResolver(),
         )
 
     embeddedServer(

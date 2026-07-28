@@ -7,13 +7,12 @@ import care.bima.eligibility.domain.PolicyStatus
 import care.bima.eligibility.domain.PolicyType
 import care.bima.eligibility.events.EligibilityEventPublisher
 import care.bima.eligibility.fhir.PolicyFhirMapper
-import care.bima.eligibility.identity.DemoInsurerIdentityResolver
 import care.bima.shared.fhir.FhirContextProvider
 import care.bima.shared.service.ErrorResponse
 import care.bima.shared.service.NotFoundException
 import care.bima.shared.service.ValidationException
+import care.bima.shared.service.organizationId
 import care.bima.shared.service.realmRoles
-import care.bima.shared.service.username
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -38,7 +37,6 @@ class PolicyRouteDependencies(
     val repository: PolicyRepository,
     val publisher: EligibilityEventPublisher,
     val referenceValidationClient: ReferenceValidationClient,
-    val identityResolver: DemoInsurerIdentityResolver,
 )
 
 fun Routing.policyRoutes(deps: PolicyRouteDependencies) {
@@ -71,7 +69,7 @@ private suspend fun createPolicy(
     deps: PolicyRouteDependencies,
 ) {
     val principal = call.principal<JWTPrincipal>()
-    val insurerId = deps.identityResolver.resolve(principal?.username())
+    val insurerId = resolveOwnOrganizationId(principal)
     if (!deps.referenceValidationClient.isInsurerOrganization(insurerId)) {
         throw ValidationException("Organization $insurerId is not a valid insurer")
     }
@@ -116,7 +114,7 @@ private suspend fun listPolicies(
         if (isAdmin) {
             call.request.queryParameters["insurerId"]?.let { parseId(it, "insurerId") }
         } else {
-            deps.identityResolver.resolve(principal?.username())
+            resolveOwnOrganizationId(principal)
         }
     call.respond(deps.repository.findAll(insurerId).map { it.toResponse() })
 }
@@ -130,7 +128,7 @@ private suspend fun updateStatus(
 
     val principal = call.principal<JWTPrincipal>()
     val isAdmin = "Admin" in (principal?.realmRoles() ?: emptyList())
-    if (!isAdmin && deps.identityResolver.resolve(principal?.username()) != existing.insurerId) {
+    if (!isAdmin && resolveOwnOrganizationId(principal) != existing.insurerId) {
         call.respond(HttpStatusCode.Forbidden, ErrorResponse("Not authorized to modify this policy"))
         return
     }
@@ -147,6 +145,11 @@ private fun parseId(
     raw: String?,
     field: String,
 ): UUID = runCatching { UUID.fromString(raw) }.getOrElse { throw ValidationException("Invalid $field: $raw") }
+
+private fun resolveOwnOrganizationId(principal: JWTPrincipal?): UUID {
+    val raw = principal?.organizationId() ?: throw ValidationException("Token has no organizationId claim")
+    return parseId(raw, "organizationId")
+}
 
 // e.g. POL-2026-4F9A2B1C - year plus 8 random hex chars is unique enough at this volume
 // without a DB round-trip to check for collisions.
