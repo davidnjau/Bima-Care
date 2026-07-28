@@ -85,7 +85,6 @@ Settings → Secrets and variables → Actions:
 | `PUBLIC_API_BASE_URL` | `https://api.bimacare.online` |
 | `CADDY_EMAIL` | Optional - Let's Encrypt renewal-notice email, defaults to `webmaster@bimacare.online` if unset |
 | `DEMO_PROVIDER_IDENTITIES` | Optional, empty until you've onboarded real providers on this deployment |
-| `DEMO_INSURER_IDENTITIES` | Optional, same |
 
 `PUBLIC_KEYCLOAK_URL` and `PUBLIC_API_BASE_URL` get baked into the web build at image-build
 time (Vite env vars aren't runtime-configurable) via `build-web-image`; `PUBLIC_KEYCLOAK_URL`
