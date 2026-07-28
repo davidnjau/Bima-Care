@@ -12,8 +12,8 @@ export interface Policy {
   status: string
 }
 
+// No policyNumber - the server generates it.
 export interface CreatePolicyRequest {
-  policyNumber: string
   name: string
   type: string
   premium: string

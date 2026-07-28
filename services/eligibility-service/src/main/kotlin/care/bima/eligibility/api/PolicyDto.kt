@@ -2,9 +2,9 @@ package care.bima.eligibility.api
 
 import kotlinx.serialization.Serializable
 
+// No policyNumber here - it's server-generated, not user-supplied.
 @Serializable
 data class CreatePolicyRequest(
-    val policyNumber: String,
     val name: String,
     val type: String,
     val premium: String,
