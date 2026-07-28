@@ -66,6 +66,19 @@
             "access.token.claim": "true",
             "userinfo.token.claim": "true"
           }
+        },
+        {
+          "name": "organizationId",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "organizationId",
+            "claim.name": "organizationId",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
         }
       ]
     }
@@ -121,7 +134,10 @@
       "credentials": [
         { "type": "password", "value": "local-dev-only-changeme", "temporary": false }
       ],
-      "realmRoles": ["Insurer"]
+      "realmRoles": ["Insurer"],
+      "attributes": {
+        "organizationId": ["035f3566-da3c-4cbd-b389-65be68090c4b"]
+      }
     },
     {
       "username": "member-demo@bimacare.dev",

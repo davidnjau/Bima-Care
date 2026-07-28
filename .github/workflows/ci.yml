@@ -150,7 +150,6 @@ jobs:
           IMAGE_PREFIX=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/bima-care
           IMAGE_TAG=${{ github.sha }}
           DEMO_PROVIDER_IDENTITIES=${{ secrets.DEMO_PROVIDER_IDENTITIES }}
-          DEMO_INSURER_IDENTITIES=${{ secrets.DEMO_INSURER_IDENTITIES }}
           EOF
 
       # Bundle into one archive rather than relying on scp-action's multi-source/directory
