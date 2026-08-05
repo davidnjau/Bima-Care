@@ -23,6 +23,7 @@ class PatientRepository {
                 it[firstName] = patient.firstName
                 it[lastName] = patient.lastName
                 it[phone] = patient.phone
+                it[email] = patient.email
                 it[gender] = patient.gender.name
                 it[dob] = patient.dob
                 it[isActive] = patient.isActive
@@ -56,6 +57,7 @@ class PatientRepository {
             firstName = this[PatientsTable.firstName],
             lastName = this[PatientsTable.lastName],
             phone = this[PatientsTable.phone],
+            email = this[PatientsTable.email],
             gender = Gender.valueOf(this[PatientsTable.gender]),
             dob = this[PatientsTable.dob],
             isActive = this[PatientsTable.isActive],

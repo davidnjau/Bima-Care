@@ -2,6 +2,7 @@ package care.bima.iam.events
 
 import care.bima.iam.clients.KeycloakAdminClient
 import care.bima.iam.clients.OrganizationClient
+import care.bima.iam.clients.SmtpMailer
 import care.bima.shared.events.Topics
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -22,13 +23,14 @@ private const val INSURER_ORGANIZATION_TYPE = "INSURER"
  * Gives every newly-registered Insurer organization a real Keycloak login, the same way
  * MemberAccountProvisioningConsumer does for Patients - reacts to `organization.created`, which
  * fires for every organization type (hospitals, clinics, labs, pharmacies too), so this skips
- * anything that isn't an Insurer. Same MVP gap as the Member pipeline: no Notification service
- * exists yet, so the temp password is only logged here for now.
+ * anything that isn't an Insurer. Emails the temp password when the organization has one on
+ * file; falls back to logging it when they don't, or if delivery fails.
  */
 class InsurerAccountProvisioningConsumer(
     bootstrapServers: String,
     private val organizationClient: OrganizationClient,
     private val keycloakAdminClient: KeycloakAdminClient,
+    private val mailer: SmtpMailer,
 ) {
     private val consumer =
         KafkaConsumer<String, String>(
@@ -81,11 +83,19 @@ class InsurerAccountProvisioningConsumer(
         if (organization.type != INSURER_ORGANIZATION_TYPE) return
 
         val tempPassword = keycloakAdminClient.provisionInsurerAccount(organization)
-        logger.warn(
-            "Provisioned Insurer account for organization $organizationId - " +
-                "username='${organization.phone}' temp password='$tempPassword' (dev-only log; no " +
-                "Notification service exists yet to deliver this to the insurer for real)",
-        )
+        val emailed =
+            organization.email
+                ?.let { mailer.sendTempPasswordEmail(it, organization.name, organization.phone, tempPassword) }
+                ?: false
+        if (emailed) {
+            logger.info("Provisioned Insurer account for organization $organizationId - emailed temp password")
+        } else {
+            logger.warn(
+                "Provisioned Insurer account for organization $organizationId - " +
+                    "username='${organization.phone}' temp password='$tempPassword' (no email on file or " +
+                    "delivery failed - this log line is the only record of this password)",
+            )
+        }
     }
 
     private fun handleRecord(value: String) {

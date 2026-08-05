@@ -25,6 +25,7 @@ const form = reactive<CreatePatientRequest>({
   firstName: '',
   lastName: '',
   phone: '',
+  email: '',
   gender: 'FEMALE',
   dob: '',
 })
@@ -37,6 +38,7 @@ function patientFields(patient: Patient) {
     { label: 'Last name', value: patient.lastName },
     { label: 'National ID', value: patient.nationalId },
     { label: 'Phone', value: patient.phone },
+    { label: 'Email', value: patient.email },
     { label: 'Gender', value: patient.gender },
     { label: 'Date of birth', value: formatDate(patient.dob) ?? patient.dob },
     { label: 'Status', value: patient.isActive ? 'Active' : 'Inactive' },
@@ -147,6 +149,7 @@ function resetForm() {
     firstName: '',
     lastName: '',
     phone: '',
+    email: '',
     gender: 'FEMALE',
     dob: '',
   })
@@ -157,16 +160,17 @@ async function onSubmit() {
   queuedNotice.value = ''
   saving.value = true
   try {
+    const payload = { ...form, email: form.email || undefined }
     if (!navigator.onLine) {
-      offlineQueue.enqueue({ ...form })
+      offlineQueue.enqueue(payload)
       queuedNotice.value = 'No connection — member saved locally and will sync automatically once back online.'
     } else {
       try {
-        await createPatient({ ...form })
+        await createPatient(payload)
         await load()
       } catch (e) {
         if (isNetworkError(e)) {
-          offlineQueue.enqueue({ ...form })
+          offlineQueue.enqueue(payload)
           queuedNotice.value = 'No connection — member saved locally and will sync automatically once back online.'
         } else {
           throw e
@@ -240,6 +244,15 @@ onUnmounted(() => window.removeEventListener('online', handleOnline))
       <div class="flex flex-col gap-1.5">
         <label class="text-xs font-semibold text-muted">Phone</label>
         <input v-model="form.phone" required class="border border-line-strong rounded-[7px] px-3 py-2 text-sm" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold text-muted">Email (optional)</label>
+        <input
+          v-model="form.email"
+          type="email"
+          placeholder="For account-credential delivery"
+          class="border border-line-strong rounded-[7px] px-3 py-2 text-sm"
+        />
       </div>
       <div class="flex flex-col gap-1.5">
         <label class="text-xs font-semibold text-muted">First name</label>

@@ -4,6 +4,7 @@ import care.bima.iam.api.identityRoutes
 import care.bima.iam.clients.KeycloakAdminClient
 import care.bima.iam.clients.OrganizationClient
 import care.bima.iam.clients.PatientClient
+import care.bima.iam.clients.SmtpMailer
 import care.bima.iam.events.InsurerAccountProvisioningConsumer
 import care.bima.iam.events.MemberAccountProvisioningConsumer
 import care.bima.shared.service.ServiceToServiceClient
@@ -28,16 +29,19 @@ fun main() {
             clientSecret = System.getenv("IAM_PROVISIONER_CLIENT_SECRET") ?: "local-dev-only-changeme",
         )
     val keycloakAdminClient = KeycloakAdminClient(adminServiceClient)
+    val mailer = SmtpMailer()
     val bootstrapServers = System.getenv("KAFKA_BOOTSTRAP_SERVERS") ?: "localhost:9092"
     MemberAccountProvisioningConsumer(
         bootstrapServers = bootstrapServers,
         patientClient = patientClient,
         keycloakAdminClient = keycloakAdminClient,
+        mailer = mailer,
     ).start()
     InsurerAccountProvisioningConsumer(
         bootstrapServers = bootstrapServers,
         organizationClient = organizationClient,
         keycloakAdminClient = keycloakAdminClient,
+        mailer = mailer,
     ).start()
 
     embeddedServer(

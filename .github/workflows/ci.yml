@@ -150,6 +150,11 @@ jobs:
           IMAGE_PREFIX=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/bima-care
           IMAGE_TAG=${{ github.sha }}
           DEMO_PROVIDER_IDENTITIES=${{ secrets.DEMO_PROVIDER_IDENTITIES }}
+          SMTP_HOST=${{ secrets.SMTP_HOST }}
+          SMTP_PORT=${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM_ADDRESS=${{ secrets.SMTP_FROM_ADDRESS }}
           EOF
 
       # Bundle into one archive rather than relying on scp-action's multi-source/directory
@@ -233,6 +238,10 @@ jobs:
               "ALTER TABLE IF EXISTS claims ADD COLUMN IF NOT EXISTS etr_document_id UUID;"
             docker exec bima-postgres psql -U bima -d encounter_service -c \
               "ALTER TABLE IF EXISTS encounters ALTER COLUMN practitioner_id DROP NOT NULL;"
+            docker exec bima-postgres psql -U bima -d patient_service -c \
+              "ALTER TABLE IF EXISTS patients ADD COLUMN IF NOT EXISTS email VARCHAR(255);"
+            docker exec bima-postgres psql -U bima -d organization_service -c \
+              "ALTER TABLE IF EXISTS organizations ADD COLUMN IF NOT EXISTS email VARCHAR(255);"
             docker compose --env-file .env $COMPOSE_FILES pull
             docker compose --env-file .env $COMPOSE_FILES up -d --remove-orphans
             docker image prune -f

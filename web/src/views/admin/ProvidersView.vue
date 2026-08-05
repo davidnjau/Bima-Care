@@ -22,6 +22,7 @@ function orgFields(org: Organization) {
     { label: 'Registration number', value: org.registrationNumber },
     { label: 'Type', value: org.type },
     { label: 'Phone', value: org.phone },
+    { label: 'Email', value: org.email },
     { label: 'Address', value: org.address },
     { label: 'Status', value: org.isActive ? 'Active' : 'Inactive' },
     { label: 'Organization ID', value: org.id },
@@ -36,6 +37,7 @@ const form = reactive<CreateOrganizationRequest>({
   name: '',
   type: 'HOSPITAL',
   phone: '',
+  email: '',
   address: '',
 })
 
@@ -55,13 +57,14 @@ async function onSubmit() {
   formError.value = ''
   saving.value = true
   try {
-    await createOrganization({ ...form })
+    await createOrganization({ ...form, email: form.email || undefined })
     showForm.value = false
     Object.assign(form, {
       registrationNumber: '',
       name: '',
       type: 'HOSPITAL',
       phone: '',
+      email: '',
       address: '',
     })
     await load()
@@ -116,6 +119,15 @@ onMounted(load)
       <div class="flex flex-col gap-1.5">
         <label class="text-xs font-semibold text-muted">Phone</label>
         <input v-model="form.phone" required class="border border-line-strong rounded-[7px] px-3 py-2 text-sm" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold text-muted">Email (optional)</label>
+        <input
+          v-model="form.email"
+          type="email"
+          placeholder="For account-credential delivery"
+          class="border border-line-strong rounded-[7px] px-3 py-2 text-sm"
+        />
       </div>
       <div class="flex flex-col gap-1.5 col-span-2">
         <label class="text-xs font-semibold text-muted">Address</label>

@@ -3,6 +3,7 @@ package care.bima.iam.clients
 import care.bima.shared.service.ServiceToServiceClient
 import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.UUID
@@ -11,6 +12,7 @@ data class OrganizationSummary(
     val id: UUID,
     val name: String,
     val phone: String,
+    val email: String?,
     val type: String,
 )
 
@@ -25,6 +27,7 @@ class OrganizationClient(
             id = organizationId,
             name = body.getValue("name").jsonPrimitive.content,
             phone = body.getValue("phone").jsonPrimitive.content,
+            email = body["email"]?.takeIf { it != JsonNull }?.jsonPrimitive?.content,
             type = body.getValue("type").jsonPrimitive.content,
         )
     }

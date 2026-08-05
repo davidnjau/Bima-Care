@@ -23,6 +23,7 @@ class OrganizationRepository {
                 it[name] = organization.name
                 it[type] = organization.type.name
                 it[phone] = organization.phone
+                it[email] = organization.email
                 it[address] = organization.address
                 it[isActive] = organization.isActive
             }
@@ -48,6 +49,7 @@ class OrganizationRepository {
             name = this[OrganizationsTable.name],
             type = OrganizationType.valueOf(this[OrganizationsTable.type]),
             phone = this[OrganizationsTable.phone],
+            email = this[OrganizationsTable.email],
             address = this[OrganizationsTable.address],
             isActive = this[OrganizationsTable.isActive],
         )

@@ -40,6 +40,7 @@ fun Routing.organizationRoutes(
                         name = request.name,
                         type = type,
                         phone = request.phone,
+                        email = validatedEmail(request.email),
                         address = request.address,
                     )
                 val created = repository.create(organization)
@@ -70,6 +71,14 @@ fun Routing.organizationRoutes(
 private fun parseId(raw: String?): UUID =
     runCatching { UUID.fromString(raw) }.getOrElse { throw ValidationException("Invalid organization id: $raw") }
 
+private val EMAIL_PATTERN = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
+
+private fun validatedEmail(raw: String?): String? {
+    if (raw == null) return null
+    if (!EMAIL_PATTERN.matches(raw)) throw ValidationException("Invalid email: $raw")
+    return raw
+}
+
 private fun Organization.toResponse() =
     OrganizationResponse(
         id = id.toString(),
@@ -77,6 +86,7 @@ private fun Organization.toResponse() =
         name = name,
         type = type.name,
         phone = phone,
+        email = email,
         address = address,
         isActive = isActive,
     )

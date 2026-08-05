@@ -8,6 +8,7 @@ object OrganizationsTable : Table("organizations") {
     val name = varchar("name", 256).index()
     val type = varchar("type", 32)
     val phone = varchar("phone", 32)
+    val email = varchar("email", 255).nullable()
     val address = varchar("address", 512)
     val isActive = bool("is_active").default(true)
 

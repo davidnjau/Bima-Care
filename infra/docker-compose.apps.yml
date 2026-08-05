@@ -58,6 +58,14 @@ services:
       KEYCLOAK_ADMIN_BASE_URL: http://keycloak:8080/admin/realms/bima-care
       IAM_PROVISIONER_CLIENT_ID: ${IAM_PROVISIONER_CLIENT_ID:-bima-iam-provisioner}
       IAM_PROVISIONER_CLIENT_SECRET: ${IAM_PROVISIONER_CLIENT_SECRET:?IAM_PROVISIONER_CLIENT_SECRET must be set in .env}
+      # Optional - SmtpMailer no-ops (falls back to logging the temp password) if
+      # SMTP_HOST/SMTP_USERNAME are unset, so this is safe to leave blank in any
+      # environment that doesn't need real email delivery.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-}
 
   patient-service:
     <<: *service-defaults

@@ -6,6 +6,7 @@ export interface Organization {
   name: string
   type: string
   phone: string
+  email: string | null
   address: string
   isActive: boolean
 }
@@ -15,6 +16,8 @@ export interface CreateOrganizationRequest {
   name: string
   type: string
   phone: string
+  // Optional - lets provisioning email the temp password instead of only logging it.
+  email?: string
   address: string
 }
 
