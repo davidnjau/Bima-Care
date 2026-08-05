@@ -10,6 +10,7 @@ data class Organization(
     val name: String,
     val type: OrganizationType,
     val phone: String,
+    val email: String? = null,
     val address: String,
     val isActive: Boolean = true,
 )

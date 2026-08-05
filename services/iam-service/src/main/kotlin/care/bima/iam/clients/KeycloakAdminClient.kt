@@ -19,6 +19,15 @@ private val PASSWORD_CHARS = ('A'..'Z') + ('a'..'z') + ('0'..'9')
 
 private data class AccountAttribute(val key: String, val value: String)
 
+// Bundled together (rather than 4 separate params) to keep provisionAccount's parameter
+// count from tripping detekt's LongParameterList - already hit that twice this session.
+private data class AccountIdentity(
+    val username: String,
+    val email: String,
+    val firstName: String,
+    val lastName: String,
+)
+
 /**
  * Provisions a real Keycloak account for a newly-registered Patient or Organization. No forced
  * first-login password reset here (deliberately) - Keycloak's direct-grant flow (what this app's
@@ -33,40 +42,46 @@ class KeycloakAdminClient(
 ) {
     suspend fun provisionMemberAccount(patient: PatientSummary): String =
         provisionAccount(
-            username = patient.phone,
-            firstName = patient.firstName,
-            lastName = patient.lastName,
+            identity =
+                AccountIdentity(
+                    username = patient.phone,
+                    // Patients/Organizations don't always have a real email - the realm's User
+                    // Profile requires one anyway (or the account is flagged "not fully set up"
+                    // and direct-grant login fails outright), so fall back to a placeholder
+                    // that's never actually used to contact anyone.
+                    email = patient.email ?: "${patient.phone}@members.bimacare.dev",
+                    firstName = patient.firstName,
+                    lastName = patient.lastName,
+                ),
             attribute = AccountAttribute("patientId", patient.id.toString()),
             roleName = "Member",
         )
 
     suspend fun provisionInsurerAccount(organization: OrganizationSummary): String =
         provisionAccount(
-            username = organization.phone,
-            firstName = organization.name,
-            lastName = "",
+            identity =
+                AccountIdentity(
+                    username = organization.phone,
+                    email = organization.email ?: "${organization.phone}@members.bimacare.dev",
+                    firstName = organization.name,
+                    lastName = "",
+                ),
             attribute = AccountAttribute("organizationId", organization.id.toString()),
             roleName = "Insurer",
         )
 
     private suspend fun provisionAccount(
-        username: String,
-        firstName: String,
-        lastName: String,
+        identity: AccountIdentity,
         attribute: AccountAttribute,
         roleName: String,
     ): String {
         val tempPassword = generateTempPassword()
         val createBody =
             buildJsonObject {
-                put("username", username)
-                put("firstName", firstName)
-                put("lastName", lastName)
-                // Patients/Organizations have no email in this system - only a phone number -
-                // but the realm's User Profile requires one, or the account gets flagged
-                // "not fully set up" and direct-grant login fails outright. This placeholder is
-                // never actually used to contact anyone.
-                put("email", "$username@members.bimacare.dev")
+                put("username", identity.username)
+                put("firstName", identity.firstName)
+                put("lastName", identity.lastName)
+                put("email", identity.email)
                 put("emailVerified", true)
                 put("enabled", true)
                 put(
@@ -90,10 +105,10 @@ class KeycloakAdminClient(
             }.toString()
 
         val createResponse = adminServiceClient.post("$adminBaseUrl/users", createBody)
-        checkSuccess(createResponse) { "create Keycloak user for $username" }
+        checkSuccess(createResponse) { "create Keycloak user for ${identity.username}" }
         val userId =
             createResponse.headers["Location"]?.substringAfterLast("/")
-                ?: findUserIdByUsername(username)
+                ?: findUserIdByUsername(identity.username)
 
         assignRealmRole(userId, roleName)
         return tempPassword

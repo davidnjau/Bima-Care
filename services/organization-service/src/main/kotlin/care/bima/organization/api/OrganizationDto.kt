@@ -8,6 +8,9 @@ data class CreateOrganizationRequest(
     val name: String,
     val type: String,
     val phone: String,
+    // Optional - lets provisioning email a real temp-password delivery instead of only
+    // logging it server-side.
+    val email: String? = null,
     val address: String,
 )
 
@@ -18,6 +21,7 @@ data class OrganizationResponse(
     val name: String,
     val type: String,
     val phone: String,
+    val email: String?,
     val address: String,
     val isActive: Boolean,
 )

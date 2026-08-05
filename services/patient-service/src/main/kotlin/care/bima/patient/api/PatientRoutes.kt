@@ -101,9 +101,18 @@ private fun CreatePatientRequest.toNewPatient(): Patient {
         firstName = firstName,
         lastName = lastName,
         phone = phone,
+        email = validatedEmail(email),
         gender = gender,
         dob = parsedDob,
     )
+}
+
+private val EMAIL_PATTERN = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
+
+private fun validatedEmail(raw: String?): String? {
+    if (raw == null) return null
+    if (!EMAIL_PATTERN.matches(raw)) throw ValidationException("Invalid email: $raw")
+    return raw
 }
 
 private fun Patient.toResponse() =
@@ -113,6 +122,7 @@ private fun Patient.toResponse() =
         firstName = firstName,
         lastName = lastName,
         phone = phone,
+        email = email,
         gender = gender.name,
         dob = dob.toString(),
         isActive = isActive,
