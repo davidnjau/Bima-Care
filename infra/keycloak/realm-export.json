@@ -85,6 +85,14 @@
   ],
   "users": [
     {
+      "username": "service-account-bima-iam-provisioner",
+      "serviceAccountClientId": "bima-iam-provisioner",
+      "enabled": true,
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users", "view-realm"]
+      }
+    },
+    {
       "username": "admin@bimacare.dev",
       "email": "admin@bimacare.dev",
       "firstName": "Admin",

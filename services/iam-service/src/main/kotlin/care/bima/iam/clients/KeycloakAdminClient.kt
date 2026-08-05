@@ -62,6 +62,12 @@ class KeycloakAdminClient(
                 put("username", username)
                 put("firstName", firstName)
                 put("lastName", lastName)
+                // Patients/Organizations have no email in this system - only a phone number -
+                // but the realm's User Profile requires one, or the account gets flagged
+                // "not fully set up" and direct-grant login fails outright. This placeholder is
+                // never actually used to contact anyone.
+                put("email", "$username@members.bimacare.dev")
+                put("emailVerified", true)
                 put("enabled", true)
                 put(
                     "attributes",
