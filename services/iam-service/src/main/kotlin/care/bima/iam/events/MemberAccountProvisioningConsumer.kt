@@ -2,6 +2,7 @@ package care.bima.iam.events
 
 import care.bima.iam.clients.KeycloakAdminClient
 import care.bima.iam.clients.PatientClient
+import care.bima.iam.clients.SmtpMailer
 import care.bima.shared.events.Topics
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -19,15 +20,15 @@ private const val POLL_TIMEOUT_MILLIS = 500L
 
 /**
  * Gives every newly-registered Patient a real Keycloak login - previously the Member portal was
- * demo-only (see IMPLEMENTATION_GUIDE.md §9). No Notification service exists yet (BIMA CARE.md §4
- * lists one but it was never built), so there's no SMS/email delivery - the temp password is only
- * logged here for now. That's a real MVP gap, not a design choice: whoever registers a member
- * currently has to relay this credential to them out of band.
+ * demo-only (see IMPLEMENTATION_GUIDE.md §9). Emails the temp password when the patient has one
+ * on file; falls back to logging it (the only delivery path before a real email was wired up)
+ * when they don't, or if delivery fails.
  */
 class MemberAccountProvisioningConsumer(
     bootstrapServers: String,
     private val patientClient: PatientClient,
     private val keycloakAdminClient: KeycloakAdminClient,
+    private val mailer: SmtpMailer,
 ) {
     private val consumer =
         KafkaConsumer<String, String>(
@@ -80,11 +81,18 @@ class MemberAccountProvisioningConsumer(
     private suspend fun provision(patientId: UUID) {
         val patient = patientClient.getPatient(patientId)
         val tempPassword = keycloakAdminClient.provisionMemberAccount(patient)
-        logger.warn(
-            "Provisioned Member account for patient $patientId - username='${patient.phone}' " +
-                "temp password='$tempPassword' (dev-only log; no Notification service exists yet " +
-                "to deliver this to the member for real)",
-        )
+        val emailed =
+            patient.email?.let { mailer.sendTempPasswordEmail(it, patient.firstName, patient.phone, tempPassword) }
+                ?: false
+        if (emailed) {
+            logger.info("Provisioned Member account for patient $patientId - emailed temp password to on-file address")
+        } else {
+            logger.warn(
+                "Provisioned Member account for patient $patientId - username='${patient.phone}' " +
+                    "temp password='$tempPassword' (no email on file or delivery failed - this log line " +
+                    "is the only record of this password, relay it to the member out of band)",
+            )
+        }
     }
 
     private fun handleRecord(value: String) {

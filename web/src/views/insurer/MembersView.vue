@@ -31,6 +31,7 @@ function patientFields(patient: Patient) {
     { label: 'Last name', value: patient.lastName },
     { label: 'National ID', value: patient.nationalId },
     { label: 'Phone', value: patient.phone },
+    { label: 'Email', value: patient.email },
     { label: 'Gender', value: patient.gender },
     { label: 'Date of birth', value: formatDate(patient.dob) ?? patient.dob },
     { label: 'Status', value: patient.isActive ? 'Active' : 'Inactive' },
@@ -89,12 +90,21 @@ const form = reactive<CreatePatientRequest>({
   firstName: '',
   lastName: '',
   phone: '',
+  email: '',
   gender: 'FEMALE',
   dob: '',
 })
 
 function resetForm() {
-  Object.assign(form, { nationalId: '', firstName: '', lastName: '', phone: '', gender: 'FEMALE', dob: '' })
+  Object.assign(form, {
+    nationalId: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    email: '',
+    gender: 'FEMALE',
+    dob: '',
+  })
 }
 
 async function onSubmit() {
@@ -105,7 +115,7 @@ async function onSubmit() {
     // insurer or Admin) - the server's own find-or-409 logic is still the real safety net for
     // races, this just avoids an unnecessary error in the common case.
     const existing = patients.value.find((p) => p.nationalId === form.nationalId)
-    if (!existing) await createPatient({ ...form })
+    if (!existing) await createPatient({ ...form, email: form.email || undefined })
     showForm.value = false
     resetForm()
     await load()
@@ -167,6 +177,7 @@ const dependentForm = reactive({
   firstName: '',
   lastName: '',
   phone: '',
+  email: '',
   gender: 'FEMALE',
   dob: '',
   relationship: 'CHILD',
@@ -184,6 +195,7 @@ function openDependentForm(patient: Patient) {
     firstName: '',
     lastName: '',
     phone: '',
+    email: '',
     gender: 'FEMALE',
     dob: '',
     relationship: 'CHILD',
@@ -212,6 +224,7 @@ async function onDependentSubmit() {
         firstName: dependentForm.firstName,
         lastName: dependentForm.lastName,
         phone: dependentForm.phone,
+        email: dependentForm.email || undefined,
         gender: dependentForm.gender,
         dob: dependentForm.dob,
       }))
@@ -267,6 +280,15 @@ onMounted(load)
       <div class="flex flex-col gap-1.5">
         <label class="text-xs font-semibold text-muted">Phone</label>
         <input v-model="form.phone" required class="border border-line-strong rounded-[7px] px-3 py-2 text-sm" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold text-muted">Email (optional)</label>
+        <input
+          v-model="form.email"
+          type="email"
+          placeholder="For account-credential delivery"
+          class="border border-line-strong rounded-[7px] px-3 py-2 text-sm"
+        />
       </div>
       <div class="flex flex-col gap-1.5">
         <label class="text-xs font-semibold text-muted">First name</label>
@@ -387,6 +409,15 @@ onMounted(load)
           v-model="dependentForm.phone"
           required
           placeholder="Guardian's phone if the dependent has none"
+          class="border border-line-strong rounded-[7px] px-3 py-2 text-sm"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold text-muted">Email (optional)</label>
+        <input
+          v-model="dependentForm.email"
+          type="email"
+          placeholder="For account-credential delivery"
           class="border border-line-strong rounded-[7px] px-3 py-2 text-sm"
         />
       </div>

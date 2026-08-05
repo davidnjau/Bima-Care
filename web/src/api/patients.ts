@@ -6,6 +6,7 @@ export interface Patient {
   firstName: string
   lastName: string
   phone: string
+  email: string | null
   gender: string
   dob: string
   isActive: boolean
@@ -16,6 +17,8 @@ export interface CreatePatientRequest {
   firstName: string
   lastName: string
   phone: string
+  // Optional - lets provisioning email the temp password instead of only logging it.
+  email?: string
   gender: string
   dob: string
   // Client-generated id (see Workstream C offline queue) so a retried sync of the same

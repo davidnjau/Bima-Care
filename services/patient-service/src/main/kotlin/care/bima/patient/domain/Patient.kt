@@ -11,6 +11,7 @@ data class Patient(
     val firstName: String,
     val lastName: String,
     val phone: String,
+    val email: String? = null,
     val gender: Gender,
     val dob: LocalDate,
     val isActive: Boolean = true,

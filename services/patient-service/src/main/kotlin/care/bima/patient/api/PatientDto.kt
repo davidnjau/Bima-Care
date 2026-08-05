@@ -10,6 +10,9 @@ data class CreatePatientRequest(
     val phone: String,
     val gender: String,
     val dob: String,
+    // Optional - lets provisioning email a real temp-password delivery instead of only
+    // logging it server-side.
+    val email: String? = null,
     // Lets an offline client (see Workstream C) pre-generate the patient's id before it has
     // connectivity, so a retried sync of the same request is a safe no-op rather than a duplicate.
     val id: String? = null,
@@ -22,6 +25,7 @@ data class PatientResponse(
     val firstName: String,
     val lastName: String,
     val phone: String,
+    val email: String?,
     val gender: String,
     val dob: String,
     val isActive: Boolean,

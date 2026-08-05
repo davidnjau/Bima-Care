@@ -17,6 +17,7 @@ dependencies {
     implementation(project(":shared:events"))
     implementation(libs.ktor.server.netty)
     implementation(libs.kafka.clients)
+    implementation(libs.jakarta.mail)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.ktor.server.test.host)
