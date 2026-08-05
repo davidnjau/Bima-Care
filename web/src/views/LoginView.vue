@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { postLoginHome } from '../router'
+import BrandDot from '../components/BrandDot.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -33,7 +34,7 @@ async function onSubmit() {
     <div class="w-full max-w-sm">
       <div class="text-center mb-8">
         <h1 class="font-display text-2xl font-bold text-brand">
-          Bima<span class="text-accent">&bull;</span>Care
+          Bima<BrandDot />Care
         </h1>
         <p class="text-muted text-sm mt-1">Sign in</p>
       </div>

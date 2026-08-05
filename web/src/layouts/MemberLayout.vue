@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { listPatients, type Patient } from '../api/patients'
 import { useMemberStore } from '../stores/member'
 import { useAuthStore } from '../stores/auth'
+import BrandDot from '../components/BrandDot.vue'
 
 const member = useMemberStore()
 const auth = useAuthStore()
@@ -59,7 +60,7 @@ onMounted(load)
     <header class="sticky top-0 z-40 bg-brand text-white border-b border-brand-dark">
       <div class="flex items-center justify-between px-7 py-3.5">
         <router-link to="/" class="font-display text-lg font-bold">
-          Bima<span class="text-accent">&bull;</span>Care
+          Bima<BrandDot />Care
         </router-link>
         <div class="flex items-center gap-3.5 text-sm">
           <span class="text-[0.68rem] uppercase tracking-wider text-brand-tint/80">
