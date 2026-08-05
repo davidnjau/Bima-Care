@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import BrandDot from '../components/BrandDot.vue'
+
 const portals = [
   {
     key: 'member',
@@ -28,7 +30,7 @@ const portals = [
   <div class="min-h-screen bg-paper flex flex-col items-center px-4 py-20">
     <div class="text-center mb-14 max-w-lg">
       <h1 class="font-display text-3xl font-bold text-brand mb-3">
-        Bima<span class="text-accent">&bull;</span>Care
+        Bima<BrandDot />Care
       </h1>
       <p class="text-muted">
         Digital cover, verified in seconds &mdash; one platform connecting members, providers,
